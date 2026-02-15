@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.MessageMapper">
+
+    <select id="list" resultType="com.cool.pojo.vo.MessageVO">
+        SELECT m.*, 
+               fu.username as from_username, fu.avatar as from_user_avatar,
+               tu.username as to_username, tu.avatar as to_user_avatar
+        FROM message m
+        LEFT JOIN user fu ON m.from_user_id = fu.id
+        LEFT JOIN user tu ON m.to_user_id = tu.id
+        WHERE m.to_user_id = #{userId} AND m.deleted = 0
+        ORDER BY m.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>

@@ -20,7 +20,7 @@ Thumbs.db
 # 敏感配置文件
 community-server/src/main/resources/application-dev.yml
 community-server/src/main/resources/application-prod.yml
-
+sql
 # 前端
 frontend/node_modules/
 frontend/dist/

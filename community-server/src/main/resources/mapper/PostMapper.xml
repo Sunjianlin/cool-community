@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.PostMapper">
+
+    <select id="count" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM post
+        <where>
+            deleted = 0
+            <if test="topicId != null">
+                AND topic_id = #{topicId}
+            </if>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="list" resultType="com.cool.pojo.vo.PostVO">
+        SELECT p.id, p.user_id, p.topic_id, p.title, p.content, p.images, 
+               p.like_count, p.comment_count, p.collect_count, p.view_count,
+               p.status, p.is_top, p.is_essence, p.create_time,
+               u.username, u.avatar as user_avatar, u.nickname as user_nickname, 
+               t.name as topic_name
+        FROM post p
+        LEFT JOIN user u ON p.user_id = u.id
+        LEFT JOIN topic t ON p.topic_id = t.id
+        WHERE p.deleted = 0
+        <if test="topicId != null">
+            AND p.topic_id = #{topicId}
+        </if>
+        <if test="userId != null">
+            AND p.user_id = #{userId}
+        </if>
+        <if test="status != null">
+            AND p.status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (p.title LIKE CONCAT('%', #{keyword}, '%') OR p.content LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY p.is_top DESC, p.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="getDetailById" resultType="com.cool.pojo.vo.PostVO">
+        SELECT p.id, p.user_id, p.topic_id, p.title, p.content, p.images, 
+               p.like_count, p.comment_count, p.collect_count, p.view_count,
+               p.status, p.is_top, p.is_essence, p.create_time,
+               u.username, u.avatar as user_avatar, u.nickname as user_nickname, 
+               t.name as topic_name
+        FROM post p
+        LEFT JOIN user u ON p.user_id = u.id
+        LEFT JOIN topic t ON p.topic_id = t.id
+        WHERE p.id = #{id} AND p.deleted = 0
+    </select>
+
+</mapper>
