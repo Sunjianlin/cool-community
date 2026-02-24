@@ -140,6 +140,7 @@ const loadHotPosts = async () => {
   try {
     const response = await postApi.getPostList({ page: 1, pageSize: 10 })
     hotPosts.value = response.data?.records || []
+    console.log('加载热门帖子成功:', hotPosts.value)
   } catch (error) {
     console.error('加载热门帖子失败:', error)
   }

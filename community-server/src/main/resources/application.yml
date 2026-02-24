@@ -64,6 +64,12 @@ aliyun:
     access-key-secret: ${aliyun.oss.access-key-secret}
     bucket-name: ${aliyun.oss.bucket-name}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
 logging:
   level:
     com.cool: ${logging.level.cool}

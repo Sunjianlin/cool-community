@@ -47,4 +47,32 @@ public interface UserMapper {
 
     @Delete("UPDATE user SET deleted = 1, update_time = NOW() WHERE id = #{id}")
     void deleteById(Long id);
+    
+    @Select("SELECT COUNT(*) FROM follow WHERE user_id = #{userId} AND type = #{type} AND deleted = 0")
+    Long countFollows(@Param("userId") Long userId, @Param("type") Integer type);
+    
+    @Select("SELECT COUNT(*) FROM follow WHERE user_id = #{userId} AND follow_id = #{followId} AND type = #{type} AND deleted = 0")
+    Integer checkFollow(@Param("userId") Long userId, @Param("followId") Long followId, @Param("type") Integer type);
+    
+    List<UserVO> getFollowingList(@Param("userId") Long userId, @Param("offset") int offset, @Param("pageSize") int pageSize);
+    
+    List<UserVO> getFollowerList(@Param("userId") Long userId, @Param("offset") int offset, @Param("pageSize") int pageSize);
+    
+    @Update("UPDATE user SET following_count = following_count + 1 WHERE id = #{userId}")
+    void incrementFollowingCount(Long userId);
+    
+    @Update("UPDATE user SET following_count = GREATEST(following_count - 1, 0) WHERE id = #{userId}")
+    void decrementFollowingCount(Long userId);
+    
+    @Update("UPDATE user SET follower_count = follower_count + 1 WHERE id = #{userId}")
+    void incrementFollowerCount(Long userId);
+    
+    @Update("UPDATE user SET follower_count = GREATEST(follower_count - 1, 0) WHERE id = #{userId}")
+    void decrementFollowerCount(Long userId);
+    
+    @Select("SELECT following_count FROM user WHERE id = #{userId}")
+    Long getFollowingCount(Long userId);
+    
+    @Select("SELECT follower_count FROM user WHERE id = #{userId}")
+    Long getFollowerCount(Long userId);
 }

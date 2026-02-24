@@ -18,4 +18,5 @@ public class MessageConstant {
     public static final String TOKEN_INVALID = "Token无效";
     public static final String UPLOAD_FAILED = "文件上传失败";
     public static final String FILE_TYPE_NOT_SUPPORT = "文件类型不支持";
+    public static final String USER_NOT_FOUND = "用户未找到";
 }

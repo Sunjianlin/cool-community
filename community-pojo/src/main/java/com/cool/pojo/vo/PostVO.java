@@ -14,6 +14,9 @@ public class PostVO {
     private String userNickname;
     private Long topicId;
     private String topicName;
+    private Long productId;
+    private Integer type;
+    private Integer productRating;
     private String title;
     private String content;
     private String images;

@@ -1,65 +1,143 @@
 <template>
-  <div class="topic-detail-page" v-if="loading">
-    <div class="loading">加载中...</div>
-  </div>
-  <div class="topic-detail-page" v-else-if="topic && topic.id">
-    <div class="topic-header">
-      <h2>{{ topic.name }}</h2>
-      <p>{{ topic.description }}</p>
-      <div class="topic-meta">
-        <span>{{ topic.postCount || 0 }} 帖子</span>
-        <span>{{ topic.followCount || 0 }} 关注</span>
-        <button class="btn btn-primary" @click="toggleFollow">
-          {{ isFollowing ? '已关注' : '关注话题' }}
-        </button>
-      </div>
+  <div class="topic-detail-page">
+    <div class="loading" v-if="loading">
+      <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+      <span>加载中...</span>
     </div>
     
-    <div class="topic-content">
-      <div class="post-list" v-if="topicPosts.length > 0">
-        <div class="post-card" v-for="post in topicPosts" :key="post.id">
-          <a :href="`/post/${post.id}`" target="_blank">
-            <div class="post-header">
-              <div class="user-info">
-                <img :src="post.user?.avatar || defaultAvatar" alt="用户头像" class="user-avatar" />
-                <span class="username">{{ post.user?.username || '未知用户' }}</span>
-              </div>
-              <span class="post-time">{{ formatDate(post.createdAt) }}</span>
+    <template v-else-if="topic">
+      <div class="topic-card">
+        <div class="topic-cover" :style="{ background: gradientColor }">
+          <span class="topic-icon">#</span>
+        </div>
+        <div class="topic-info">
+          <h1 class="topic-name">{{ topic.name }}</h1>
+          <p class="topic-description">{{ topic.description || '暂无描述' }}</p>
+          <div class="topic-stats">
+            <div class="stat-item">
+              <span class="stat-value">{{ topic.postCount || 0 }}</span>
+              <span class="stat-label">帖子</span>
             </div>
-            <h4 class="post-title">{{ post.title }}</h4>
-            <p class="post-content">{{ post.content }}</p>
-            <div class="post-stats">
-              <span class="stat-item">{{ post.likeCount || 0 }} 赞</span>
-              <span class="stat-item">{{ post.commentCount || 0 }} 评论</span>
-              <span class="stat-item">{{ post.viewCount || 0 }} 浏览</span>
+            <div class="stat-item">
+              <span class="stat-value">{{ topic.followCount || 0 }}</span>
+              <span class="stat-label">关注</span>
             </div>
-          </a>
+          </div>
+          <div class="topic-actions">
+            <button 
+              class="btn" 
+              :class="topic.isFollowed ? 'btn-following' : 'btn-primary'"
+              @click="toggleFollow"
+            >
+              {{ topic.isFollowed ? '已关注' : '关注话题' }}
+            </button>
+            <router-link to="/create-post" class="btn btn-outline">
+              发帖
+            </router-link>
+          </div>
         </div>
       </div>
-      <div v-else class="empty-state">
-        <p>暂无帖子，快来发布第一个帖子吧！</p>
+      
+      <div class="posts-section">
+        <div class="section-header">
+          <h3 class="section-title">相关帖子</h3>
+          <span class="post-count">共 {{ pagination.total }} 篇</span>
+        </div>
+        
+        <div class="post-list" v-if="posts.length > 0">
+          <router-link 
+            v-for="post in posts" 
+            :key="post.id" 
+            :to="`/post/${post.id}`"
+            class="post-card"
+          >
+            <div class="post-header">
+              <img :src="post.userAvatar || defaultAvatar" class="user-avatar" />
+              <div class="user-info">
+                <span class="username">{{ post.userNickname || post.username }}</span>
+                <span class="post-time">{{ formatDate(post.createTime) }}</span>
+              </div>
+            </div>
+            <h4 class="post-title">{{ post.title }}</h4>
+            <p class="post-content">{{ truncate(post.content, 150) }}</p>
+            <div class="post-footer">
+              <div class="post-stats">
+                <span>{{ post.likeCount || 0 }} 赞</span>
+                <span>{{ post.commentCount || 0 }} 评论</span>
+                <span>{{ post.viewCount || 0 }} 浏览</span>
+              </div>
+              <div class="post-tags" v-if="post.isTop || post.isEssence">
+                <span class="tag tag-top" v-if="post.isTop">置顶</span>
+                <span class="tag tag-essence" v-if="post.isEssence">精华</span>
+              </div>
+            </div>
+          </router-link>
+        </div>
+        
+        <div class="empty-state" v-else>
+          <p>暂无帖子，快来发布第一篇吧！</p>
+          <router-link to="/create-post" class="btn btn-primary">发布帖子</router-link>
+        </div>
+        
+        <el-pagination
+          v-if="pagination.total > pagination.pageSize"
+          v-model:current-page="pagination.page"
+          :page-size="pagination.pageSize"
+          :total="pagination.total"
+          layout="prev, pager, next"
+          @current-change="loadPosts"
+          style="margin-top: 20px; justify-content: center;"
+        />
       </div>
+    </template>
+    
+    <div class="empty-state" v-else>
+      <p>话题不存在或已被删除</p>
+      <router-link to="/topics" class="btn btn-primary">返回话题列表</router-link>
     </div>
-  </div>
-  <div v-else class="empty-state">
-    <p>话题不存在</p>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { Loading } from '@element-plus/icons-vue'
 import topicApi from '../api/topicApi'
 import postApi from '../api/postApi'
+import { useUserStore } from '../store/user'
 
 const route = useRoute()
-const topicId = computed(() => route.params.id)
+const userStore = useUserStore()
 
 const loading = ref(true)
 const topic = ref(null)
-const topicPosts = ref([])
-const isFollowing = ref(false)
+const posts = ref([])
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  total: 0
+})
+
+const gradients = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)'
+]
+
+const gradientColor = computed(() => {
+  if (!topic.value) return gradients[0]
+  const id = topic.value.id || 1
+  return gradients[id % gradients.length]
+})
+
+const updatePageTitle = () => {
+  document.title = topic.value ? `${topic.value.name} - CoolCommunity` : '话题详情 - CoolCommunity'
+}
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
@@ -77,38 +155,67 @@ const formatDate = (dateStr) => {
   return date.toLocaleDateString('zh-CN')
 }
 
-const toggleFollow = () => {
-  isFollowing.value = !isFollowing.value
-  if (isFollowing.value) {
-    topic.value.followCount = (topic.value.followCount || 0) + 1
-  } else {
-    topic.value.followCount = Math.max(0, (topic.value.followCount || 1) - 1)
-  }
+const truncate = (text, length) => {
+  if (!text) return ''
+  const cleanText = text.replace(/<[^>]+>/g, '')
+  return cleanText.length > length ? cleanText.substring(0, length) + '...' : cleanText
 }
 
 const loadTopic = async () => {
   try {
-    const response = await topicApi.getTopicById(topicId.value)
-    topic.value = response || null
+    const response = await topicApi.getTopicDetail(route.params.id)
+    if (response.code === 200 && response.data) {
+      topic.value = response.data
+      updatePageTitle()
+    } else {
+      topic.value = null
+    }
   } catch (error) {
     console.error('加载话题失败:', error)
     topic.value = null
   }
 }
 
-const loadTopicPosts = async () => {
+const loadPosts = async () => {
   try {
-    const response = await postApi.getPostsByTopicId(topicId.value)
-    topicPosts.value = response || []
+    const response = await postApi.getPostList({
+      topicId: route.params.id,
+      page: pagination.value.page,
+      pageSize: pagination.value.pageSize
+    })
+    if (response.code === 200 && response.data) {
+      posts.value = response.data.records || []
+      pagination.value.total = response.data.total || 0
+    }
   } catch (error) {
     console.error('加载帖子失败:', error)
-    topicPosts.value = []
+    posts.value = []
+  }
+}
+
+const toggleFollow = async () => {
+  if (!userStore.isLoggedIn) {
+    return
+  }
+  
+  try {
+    if (topic.value.isFollowed) {
+      await topicApi.unfollowTopic(topic.value.id)
+      topic.value.isFollowed = false
+      topic.value.followCount = Math.max(0, (topic.value.followCount || 1) - 1)
+    } else {
+      await topicApi.followTopic(topic.value.id)
+      topic.value.isFollowed = true
+      topic.value.followCount = (topic.value.followCount || 0) + 1
+    }
+  } catch (error) {
+    console.error('关注操作失败:', error)
   }
 }
 
 const loadData = async () => {
   loading.value = true
-  await Promise.all([loadTopic(), loadTopicPosts()])
+  await Promise.all([loadTopic(), loadPosts()])
   loading.value = false
 }
 
@@ -116,7 +223,8 @@ onMounted(() => {
   loadData()
 })
 
-watch(topicId, () => {
+watch(() => route.params.id, () => {
+  pagination.value.page = 1
   loadData()
 })
 </script>
@@ -126,39 +234,155 @@ watch(topicId, () => {
   width: 100%;
 }
 
-.topic-header {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 30px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  color: #999;
+  gap: 16px;
 }
 
-.topic-header h2 {
-  margin: 0 0 10px 0;
-  color: #333;
-  font-size: 24px;
+.topic-card {
+  display: flex;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
 }
 
-.topic-header p {
-  color: #666;
-  margin: 0 0 20px 0;
-  line-height: 1.6;
-}
-
-.topic-meta {
+.topic-cover {
+  width: 200px;
+  min-height: 200px;
   display: flex;
   align-items: center;
-  gap: 20px;
-  color: #999;
-  font-size: 14px;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.topic-content {
-  background-color: #fff;
+.topic-icon {
+  font-size: 80px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: bold;
+}
+
+.topic-info {
+  flex: 1;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.topic-name {
+  font-size: 28px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 12px 0;
+}
+
+.topic-description {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+  flex: 1;
+}
+
+.topic-stats {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.topic-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
   border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: #3498db;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2980b9;
+}
+
+.btn-following {
+  background: #e8f4fc;
+  color: #3498db;
+}
+
+.btn-following:hover {
+  background: #d0e8f7;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+}
+
+.btn-outline:hover {
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.posts-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.post-count {
+  font-size: 14px;
+  color: #999;
 }
 
 .post-list {
@@ -168,80 +392,97 @@ watch(topicId, () => {
 }
 
 .post-card {
-  border: 1px solid #eee;
-  border-radius: 8px;
+  display: block;
   padding: 20px;
-  transition: all 0.3s ease;
+  border-radius: 12px;
+  background: #f8f9fa;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s;
 }
 
 .post-card:hover {
-  border-color: #3498db;
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
-}
-
-.post-card a {
-  text-decoration: none;
-  color: inherit;
-  display: block;
+  background: #f0f2f5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .post-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
 }
 
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
 .username {
+  font-size: 14px;
   font-weight: 500;
   color: #333;
 }
 
 .post-time {
+  font-size: 12px;
   color: #999;
-  font-size: 13px;
 }
 
 .post-title {
-  margin: 0 0 10px 0;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
   color: #333;
+  margin: 0 0 8px 0;
 }
 
 .post-content {
+  font-size: 14px;
   color: #666;
-  margin: 0 0 15px 0;
   line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin: 0 0 12px 0;
+}
+
+.post-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .post-stats {
   display: flex;
-  gap: 20px;
+  gap: 16px;
+  font-size: 12px;
   color: #999;
-  font-size: 13px;
 }
 
-.stat-item {
+.post-tags {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  gap: 8px;
+}
+
+.tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tag-top {
+  background: #e74c3c;
+  color: white;
+}
+
+.tag-essence {
+  background: #f39c12;
+  color: white;
 }
 
 .empty-state {
@@ -250,28 +491,30 @@ watch(topicId, () => {
   color: #999;
 }
 
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
+.empty-state p {
+  margin-bottom: 20px;
 }
 
 @media (max-width: 768px) {
-  .topic-header {
+  .topic-card {
+    flex-direction: column;
+  }
+  
+  .topic-cover {
+    width: 100%;
+    min-height: 120px;
+  }
+  
+  .topic-info {
     padding: 20px;
   }
   
-  .topic-header h2 {
-    font-size: 20px;
+  .topic-name {
+    font-size: 22px;
   }
   
-  .post-card {
-    padding: 16px;
-  }
-  
-  .post-stats {
-    flex-wrap: wrap;
-    gap: 12px;
+  .topic-stats {
+    gap: 24px;
   }
 }
 </style>

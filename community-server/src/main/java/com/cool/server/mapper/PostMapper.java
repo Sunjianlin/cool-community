@@ -12,8 +12,8 @@ public interface PostMapper {
     @Select("SELECT * FROM post WHERE id = #{id} AND deleted = 0")
     Post getById(Long id);
 
-    @Insert("INSERT INTO post (user_id, topic_id, title, content, images, like_count, comment_count, collect_count, view_count, status, is_top, is_essence, create_time, update_time, deleted) " +
-            "VALUES (#{userId}, #{topicId}, #{title}, #{content}, #{images}, #{likeCount}, #{commentCount}, #{collectCount}, #{viewCount}, #{status}, #{isTop}, #{isEssence}, NOW(), NOW(), 0)")
+    @Insert("INSERT INTO post (user_id, topic_id, product_id, title, content, images, type, like_count, comment_count, collect_count, view_count, status, is_top, is_essence, create_time, update_time, deleted) " +
+            "VALUES (#{userId}, #{topicId}, #{productId}, #{title}, #{content}, #{images}, #{type}, #{likeCount}, #{commentCount}, #{collectCount}, #{viewCount}, #{status}, #{isTop}, #{isEssence}, NOW(), NOW(), 0)")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(Post post);
 
@@ -25,6 +25,8 @@ public interface PostMapper {
             "<if test='title != null'>, title = #{title}</if>" +
             "<if test='content != null'>, content = #{content}</if>" +
             "<if test='images != null'>, images = #{images}</if>" +
+            "<if test='type != null'>, type = #{type}</if>" +
+            "<if test='productId != null'>, product_id = #{productId}</if>" +
             "<if test='status != null'>, status = #{status}</if>" +
             "<if test='isTop != null'>, is_top = #{isTop}</if>" +
             "<if test='isEssence != null'>, is_essence = #{isEssence}</if>" +

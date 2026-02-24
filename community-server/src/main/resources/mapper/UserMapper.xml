@@ -15,7 +15,8 @@
     </select>
 
     <select id="list" resultType="com.cool.pojo.vo.UserVO">
-        SELECT id, username, nickname, avatar, email, phone, bio, gender, status, role
+        SELECT id, username, nickname, avatar, email, phone, bio, gender, status, role, 
+               following_count, follower_count, post_count
         FROM user WHERE deleted = 0
         <if test="status != null">
             AND status = #{status}
@@ -24,6 +25,24 @@
             AND (username LIKE CONCAT('%', #{keyword}, '%') OR nickname LIKE CONCAT('%', #{keyword}, '%'))
         </if>
         ORDER BY create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="getFollowingList" resultType="com.cool.pojo.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.avatar, u.bio, u.follower_count, u.following_count, u.post_count
+        FROM follow f
+        LEFT JOIN user u ON f.follow_id = u.id
+        WHERE f.user_id = #{userId} AND f.type = 0 AND f.deleted = 0 AND u.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="getFollowerList" resultType="com.cool.pojo.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.avatar, u.bio, u.follower_count, u.following_count, u.post_count
+        FROM follow f
+        LEFT JOIN user u ON f.user_id = u.id
+        WHERE f.follow_id = #{userId} AND f.type = 0 AND f.deleted = 0 AND u.deleted = 0
+        ORDER BY f.create_time DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 

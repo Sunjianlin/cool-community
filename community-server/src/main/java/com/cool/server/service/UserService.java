@@ -1,18 +1,20 @@
 package com.cool.server.service;
 
+import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.dto.UserLoginDTO;
 import com.cool.pojo.dto.UserRegisterDTO;
-import com.cool.pojo.dto.PageQueryDTO;
+import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.UserLoginVO;
 import com.cool.pojo.vo.UserVO;
-import com.cool.pojo.vo.PageVO;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
     
+    UserLoginVO login(UserLoginDTO dto);
+
     void register(UserRegisterDTO dto);
 
-    UserLoginVO login(UserLoginDTO dto);
+    void logout();
 
     UserVO getUserInfo();
 
@@ -33,4 +35,12 @@ public interface UserService {
     void unbanUser(Long id);
 
     void deleteUser(Long id);
+
+    PageVO<UserVO> getFollowingList(Long userId, PageQueryDTO dto);
+
+    PageVO<UserVO> getFollowerList(Long userId, PageQueryDTO dto);
+
+    boolean isFollowing(Long userId, Long targetId);
+    
+    void kickUser(Long id);
 }

@@ -10,9 +10,11 @@ public class Post extends BaseEntity {
     private Long id;
     private Long userId;
     private Long topicId;
+    private Long productId;
     private String title;
     private String content;
     private String images;
+    private Integer type;
     private Integer likeCount;
     private Integer commentCount;
     private Integer collectCount;

@@ -49,8 +49,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/brand/list",
                         "/brand/**",
                         "/category/list",
+                        "/file/upload/**",
                         "/static/**",
-                        "/error"
+                        "/error",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**",
+                        "/webjars/**"
                 );
     }
 }

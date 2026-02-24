@@ -18,4 +18,7 @@ public class User extends BaseEntity {
     private Integer gender;
     private Integer status;
     private Integer role;
+    private Long followingCount;
+    private Long followerCount;
+    private Integer postCount;
 }

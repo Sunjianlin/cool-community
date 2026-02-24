@@ -10,11 +10,20 @@ public class PageQueryDTO {
     private String keyword;
     private Long topicId;
     private Long userId;
+    private Long productId;
+    private Integer type;
     private Long categoryId;
+    private String category;
     private String brand;
     private Integer status;
+    private Integer offset;
 
     public Integer getOffset() {
-        return (page - 1) * pageSize;
+        this.offset = (page - 1) * pageSize;
+        return this.offset;
+    }
+
+    public void setOffset(Integer offset) {
+        this.offset = offset;
     }
 }

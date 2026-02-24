@@ -1,24 +1,40 @@
 import axios from './axios'
 
 const messageApi = {
-  // 获取两个用户之间的消息
-  getMessagesBetweenUsers: (senderId, receiverId) => {
-    return axios.get(`/api/messages/conversation/${senderId}/${receiverId}`)
+  getConversationList: () => {
+    return axios.get('/message/conversations')
   },
   
-  // 获取未读消息
-  getUnreadMessages: (receiverId) => {
-    return axios.get(`/api/messages/unread/${receiverId}`)
+  getConversation: (toUserId, params) => {
+    return axios.get(`/message/conversation/${toUserId}`, { params })
   },
   
-  // 发送消息
-  sendMessage: (message) => {
-    return axios.post('/api/messages', message)
+  sendMessage: (data) => {
+    return axios.post('/message/send', data)
   },
   
-  // 标记消息为已读
-  markAsRead: (messageId) => {
-    return axios.post(`/api/messages/${messageId}/read`)
+  getMessageList: (params) => {
+    return axios.get('/message/list', { params })
+  },
+  
+  getUnreadCount: () => {
+    return axios.get('/message/unread')
+  },
+  
+  markAsRead: (id) => {
+    return axios.post(`/message/read/${id}`)
+  },
+  
+  markAllAsRead: () => {
+    return axios.post('/message/read/all')
+  },
+  
+  markConversationAsRead: (toUserId) => {
+    return axios.post(`/message/conversation/read/${toUserId}`)
+  },
+  
+  deleteMessage: (id) => {
+    return axios.delete(`/message/delete/${id}`)
   }
 }
 

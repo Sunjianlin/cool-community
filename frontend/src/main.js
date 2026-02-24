@@ -9,6 +9,7 @@ import App from './App.vue'
 import HomePage from './views/HomePage.vue'
 import TopicsPage from './views/TopicsPage.vue'
 import TopicPage from './views/TopicPage.vue'
+import TopicDetailPage from './views/TopicDetailPage.vue'
 import PostDetailPage from './views/PostDetailPage.vue'
 import ProductsPage from './views/ProductsPage.vue'
 import ProductDetailPage from './views/ProductDetailPage.vue'
@@ -23,7 +24,7 @@ import './style.css'
 const routes = [
   { path: '/', component: HomePage },
   { path: '/topics', component: TopicsPage },
-  { path: '/topic/:id', component: TopicPage },
+  { path: '/topic/:id', component: TopicDetailPage },
   { path: '/post/:id', component: PostDetailPage },
   { path: '/products', component: ProductsPage },
   { path: '/product/:id', component: ProductDetailPage },

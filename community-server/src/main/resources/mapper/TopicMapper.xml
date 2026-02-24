@@ -3,10 +3,16 @@
 <mapper namespace="com.cool.server.mapper.TopicMapper">
 
     <select id="count" resultType="java.lang.Long">
-        SELECT COUNT(*) FROM topic WHERE deleted = 0
+        SELECT COUNT(*) FROM topic
         <where>
+            <if test="true">
+                deleted = 0
+            </if>
             <if test="status != null">
                 AND status = #{status}
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
             </if>
             <if test="keyword != null and keyword != ''">
                 AND name LIKE CONCAT('%', #{keyword}, '%')
@@ -16,20 +22,33 @@
 
     <select id="list" resultType="com.cool.pojo.vo.TopicVO">
         SELECT id, name, description, icon, cover, category, follow_count, post_count, is_hot
-        FROM topic WHERE deleted = 0
-        <if test="status != null">
-            AND status = #{status}
-        </if>
-        <if test="keyword != null and keyword != ''">
-            AND name LIKE CONCAT('%', #{keyword}, '%')
-        </if>
+        FROM topic
+        <where>
+            <if test="true">
+                deleted = 0
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
         ORDER BY follow_count DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
     <select id="listHot" resultType="com.cool.pojo.vo.TopicVO">
         SELECT id, name, description, icon, cover, category, follow_count, post_count, is_hot
-        FROM topic WHERE is_hot = 1 AND deleted = 0
+        FROM topic
+        <where>
+            <if test="true">
+                is_hot = 1 AND deleted = 0
+            </if>
+        </where>
         ORDER BY follow_count DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>

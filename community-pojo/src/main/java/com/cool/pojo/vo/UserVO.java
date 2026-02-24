@@ -16,8 +16,9 @@ public class UserVO {
     private Integer status;
     private Integer role;
     private String roleName;
-    private Integer followCount;
-    private Integer fansCount;
+    private Long followingCount;
+    private Long followerCount;
     private Integer postCount;
     private Integer likeCount;
+    private Boolean isFollowing;
 }

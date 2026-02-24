@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
 const axiosInstance = axios.create({
   baseURL: 'http://localhost:8082/api',
@@ -31,10 +32,9 @@ axiosInstance.interceptors.response.use(
   },
   error => {
     console.error('API Error:', error)
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+    if (error.response) {
+      const message = error.response.data?.message || error.message || '请求失败'
+      return Promise.reject(new Error(message))
     }
     return Promise.reject(error)
   }

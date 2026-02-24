@@ -22,4 +22,6 @@ public interface TopicService {
     void followTopic(Long id);
 
     void unfollowTopic(Long id);
+
+    void setHot(Long id, boolean isHot);
 }

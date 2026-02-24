@@ -56,7 +56,11 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import topicApi from '../api/topicApi'
+
+const router = useRouter()
+const route = useRoute()
 
 const topics = ref([])
 const loading = ref(false)
@@ -105,7 +109,7 @@ const loadTopics = async (reset = false) => {
   try {
     const params = { page: page.value, pageSize }
     if (selectedCategory.value) {
-      params.keyword = selectedCategory.value
+      params.category = selectedCategory.value
     }
     
     const response = await topicApi.getTopicList(params)

@@ -1,7 +1,6 @@
 package com.cool.server.handler;
 
 import com.cool.common.constant.MessageConstant;
-import com.cool.pojo.vo.PageVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -21,7 +20,7 @@ public class GlobalExceptionHandler {
         log.error("系统异常: ", e);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 500);
-        result.put("message", MessageConstant.FAIL);
+        result.put("message", e.getMessage() != null ? e.getMessage() : MessageConstant.FAIL);
         return result;
     }
 
@@ -31,7 +30,7 @@ public class GlobalExceptionHandler {
         log.error("运行时异常: ", e);
         Map<String, Object> result = new HashMap<>();
         result.put("code", 400);
-        result.put("message", e.getMessage());
+        result.put("message", e.getMessage() != null ? e.getMessage() : "请求失败");
         return result;
     }
 

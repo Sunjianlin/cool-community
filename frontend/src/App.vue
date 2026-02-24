@@ -18,7 +18,7 @@
           </div>
         </div>
         <div class="top-nav-right">
-          <router-link to="/create-post" class="btn btn-primary">发帖</router-link>
+          <router-link to="/create-post" class="btn btn-primary" v-if="userStore.isLoggedIn">发帖</router-link>
           <template v-if="userStore.isLoggedIn">
             <el-dropdown trigger="click">
               <div class="avatar-wrapper">
@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from './store/user'
 
@@ -62,12 +62,10 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const searchKeyword = ref('')
+let tokenValidationInterval = null
 
 const isAdmin = computed(() => {
-  if (!userStore.isLoggedIn || !userStore.user) {
-    return false
-  }
-  return userStore.user.role >= 1
+  return userStore.isAdmin
 })
 
 const navigateTo = (path) => {
@@ -89,13 +87,29 @@ const handleSearch = () => {
   }
 }
 
-const handleLogout = () => {
-  userStore.logout()
+const handleLogout = async () => {
+  await userStore.logout()
   router.push('/')
 }
 
-onMounted(() => {
-  userStore.loadUserFromStorage()
+const startTokenValidation = () => {
+  // 每30秒验证一次token的有效性
+  tokenValidationInterval = setInterval(async () => {
+    if (userStore.isLoggedIn) {
+      await userStore.validateToken()
+    }
+  }, 30000)
+}
+
+onMounted(async () => {
+  await userStore.initAuth()
+  startTokenValidation()
+})
+
+onUnmounted(() => {
+  if (tokenValidationInterval) {
+    clearInterval(tokenValidationInterval)
+  }
 })
 </script>
 

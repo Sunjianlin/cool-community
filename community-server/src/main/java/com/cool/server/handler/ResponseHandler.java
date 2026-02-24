@@ -26,6 +26,12 @@ public class ResponseHandler implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
                                   Class<? extends HttpMessageConverter<?>> selectedConverterType,
                                   ServerHttpRequest request, ServerHttpResponse response) {
+        String path = request.getURI().getPath();
+        
+        if (path.contains("/v3/api-docs") || path.contains("/swagger-ui")) {
+            return body;
+        }
+        
         if (body == null) {
             return success(null);
         }

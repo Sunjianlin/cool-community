@@ -28,7 +28,10 @@
           还没有发布过帖子
         </div>
         <div v-else class="post-card" v-for="post in userPosts" :key="post.id" @click="$router.push(`/post/${post.id}`)">
-          <h4>{{ post.title }}</h4>
+          <div class="post-header">
+            <h4>{{ post.title }}</h4>
+            <span :class="['post-status', getStatusClass(post.status)]">{{ post.statusName || '未知状态' }}</span>
+          </div>
           <p class="post-content">{{ truncate(post.content, 100) }}</p>
           <div class="post-meta">
             <span>发布于 {{ formatDate(post.createTime) }}</span>
@@ -82,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../store/user'
 import userApi from '../api/userApi'
@@ -108,6 +111,7 @@ const user = ref({
 const userPosts = ref([])
 const showEditDialog = ref(false)
 const saving = ref(false)
+const loading = ref(true)
 const editForm = ref({
   username: '',
   nickname: '',
@@ -152,33 +156,53 @@ const handleAvatarError = () => {
 }
 
 const loadUserProfile = async () => {
-  if (userStore.isLoggedIn && userStore.user) {
-    user.value = {
-      ...userStore.user,
-      postCount: userStore.user.postCount || 0,
-      followerCount: userStore.user.followerCount || 0,
-      followingCount: userStore.user.followingCount || 0
+  loading.value = true
+  try {
+    // 确保 userStore 已初始化
+    if (!userStore.isInitialized) {
+      await userStore.initAuth()
     }
-    editForm.value = {
-      username: userStore.user.username || '',
-      nickname: userStore.user.nickname || '',
-      email: userStore.user.email || '',
-      avatar: userStore.user.avatar || '',
-      bio: userStore.user.bio || ''
+    
+    if (userStore.isLoggedIn && userStore.user) {
+      user.value = {
+        ...userStore.user,
+        postCount: userStore.user.postCount || 0,
+        followerCount: userStore.user.followerCount || 0,
+        followingCount: userStore.user.followingCount || 0
+      }
+      editForm.value = {
+        username: userStore.user.username || '',
+        nickname: userStore.user.nickname || '',
+        email: userStore.user.email || '',
+        avatar: userStore.user.avatar || '',
+        bio: userStore.user.bio || ''
+      }
+      return true
+    } else {
+      router.push('/login')
+      return false
     }
-  } else {
+  } catch (error) {
+    console.error('加载用户资料失败:', error)
     router.push('/login')
+    return false
+  } finally {
+    loading.value = false
   }
 }
 
 const loadUserPosts = async () => {
-  if (userStore.user?.id) {
-    try {
-      const response = await postApi.getPostList({ userId: userStore.user.id, page: 1, pageSize: 10 })
-      userPosts.value = response.data?.records || []
-    } catch (error) {
-      console.error('加载帖子失败:', error)
-    }
+  if (!userStore.isLoggedIn || !userStore.user || !userStore.user.id) {
+    return
+  }
+  
+  try {
+    const response = await postApi.getPostList({ userId: userStore.user.id, page: 1, pageSize: 10 });
+    userPosts.value = response.data?.records || [];
+    console.log('加载用户帖子成功:', userPosts.value);
+  } catch (error) {
+    console.error('加载帖子失败:', error);
+    userPosts.value = [];
   }
 }
 
@@ -213,9 +237,36 @@ const truncate = (text, length) => {
   return text.length > length ? text.substring(0, length) + '...' : text
 }
 
-onMounted(() => {
-  loadUserProfile()
-  loadUserPosts()
+const getStatusClass = (status) => {
+  switch (status) {
+    case 0:
+      return 'status-pending'
+    case 1:
+      return 'status-published'
+    case 2:
+      return 'status-rejected'
+    default:
+      return 'status-unknown'
+  }
+}
+
+// 监听登录状态变化，重新加载数据
+watch(
+  () => [userStore.isLoggedIn, userStore.user],
+  async ([isLoggedIn, user]) => {
+    if (isLoggedIn && user) {
+      await loadUserProfile()
+      await loadUserPosts()
+    }
+  },
+  { deep: true }
+)
+
+onMounted(async () => {
+  const isLoggedIn = await loadUserProfile()
+  if (isLoggedIn) {
+    await loadUserPosts()
+  }
 })
 </script>
 
@@ -335,6 +386,44 @@ onMounted(() => {
   color: #666;
   margin-bottom: 12px;
   line-height: 1.4;
+}
+
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.post-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.status-published {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-rejected {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-unknown {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
 }
 
 .post-meta {

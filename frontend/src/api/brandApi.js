@@ -10,15 +10,15 @@ const brandApi = {
   },
   
   createBrand: (data) => {
-    return axios.post('/brand/create', data)
+    return axios.post('/admin/brand/create', data)
   },
   
   updateBrand: (data) => {
-    return axios.put('/brand/update', data)
+    return axios.put('/admin/brand/update', data)
   },
   
   deleteBrand: (id) => {
-    return axios.delete(`/brand/${id}`)
+    return axios.delete(`/admin/brand/${id}`)
   }
 }
 

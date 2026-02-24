@@ -30,6 +30,7 @@
         <hutool.version>5.8.23</hutool.version>
         <jjwt.version>0.12.3</jjwt.version>
         <aliyun-oss.version>3.17.4</aliyun-oss.version>
+        <springdoc.version>2.3.0</springdoc.version>
     </properties>
 
     <dependencyManagement>
@@ -97,6 +98,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.cool</groupId>
                 <artifactId>community-common</artifactId>
                 <version>${project.version}</version>
@@ -125,6 +132,7 @@
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>

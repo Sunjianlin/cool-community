@@ -1,259 +1,210 @@
 <template>
   <div class="chat-page">
     <div class="chat-container">
-      <!-- 好友列表 -->
-      <div class="friends-list">
-        <div class="friends-header">
+      <div class="conversations-list">
+        <div class="conversations-header">
           <h3>私信</h3>
-          <input type="text" class="input search-input" placeholder="搜索好友" />
+          <span class="unread-count" v-if="unreadCount > 0">{{ unreadCount }}</span>
         </div>
-        <div class="friend-items">
+        <div class="conversation-items" v-if="conversations.length > 0">
           <div 
-            class="friend-item" 
-            v-for="friend in friends" 
-            :key="friend.id"
-            :class="{ active: selectedFriendId === friend.id }"
-            @click="selectFriend(friend.id)"
+            class="conversation-item" 
+            v-for="conv in conversations" 
+            :key="conv.fromUserId"
+            :class="{ active: selectedUserId === conv.fromUserId }"
+            @click="selectConversation(conv)"
           >
-            <div class="friend-avatar">
-              <img :src="friend.avatar" alt="好友头像" />
-              <span class="unread-badge" v-if="friend.unreadCount > 0">{{ friend.unreadCount }}</span>
+            <div class="conv-avatar">
+              <img :src="conv.fromUserAvatar || defaultAvatar" alt="头像" />
             </div>
-            <div class="friend-info">
-              <div class="friend-name">{{ friend.name }}</div>
-              <div class="last-message" v-if="friend.lastMessage">{{ friend.lastMessage }}</div>
-              <div class="last-message-time" v-if="friend.lastMessageTime">{{ friend.lastMessageTime }}</div>
+            <div class="conv-info">
+              <div class="conv-name">{{ conv.fromUserNickname || conv.fromUsername }}</div>
+              <div class="conv-last-message">{{ conv.content }}</div>
             </div>
+            <div class="conv-time">{{ formatTime(conv.createTime) }}</div>
           </div>
+        </div>
+        <div class="empty-conversations" v-else>
+          <p>暂无私信</p>
         </div>
       </div>
       
-      <!-- 聊天区域 -->
-      <div class="chat-area" v-if="selectedFriend">
+      <div class="chat-area" v-if="selectedUser">
         <div class="chat-header">
-          <div class="friend-info">
-            <img :src="selectedFriend.avatar" alt="好友头像" class="friend-avatar" />
-            <span class="friend-name">{{ selectedFriend.name }}</span>
-          </div>
-          <div class="chat-actions">
-            <button class="btn btn-secondary">查看资料</button>
+          <div class="user-info">
+            <img :src="selectedUser.avatar || defaultAvatar" class="user-avatar" />
+            <div class="user-details">
+              <span class="user-name">{{ selectedUser.nickname || selectedUser.username }}</span>
+              <router-link :to="`/user/${selectedUser.id}`" class="view-profile">查看资料</router-link>
+            </div>
           </div>
         </div>
         
-        <div class="messages-container">
-          <div class="message-item" v-for="message in messages" :key="message.id" :class="{ sent: message.isSent }">
+        <div class="messages-container" ref="messagesContainer">
+          <div class="message-item" 
+               v-for="msg in messages" 
+               :key="msg.id" 
+               :class="{ sent: msg.fromUserId === currentUserId }">
             <div class="message-content">
-              <p>{{ message.content }}</p>
-              <span class="message-time">{{ message.time }}</span>
+              <p>{{ msg.content }}</p>
+              <span class="message-time">{{ formatTime(msg.createTime) }}</span>
             </div>
           </div>
         </div>
         
         <div class="message-input-container">
-          <input type="text" class="input message-input" placeholder="输入消息..." v-model="newMessage" @keyup.enter="sendMessage" />
-          <button class="btn btn-primary" @click="sendMessage">发送</button>
+          <input 
+            type="text" 
+            class="input message-input" 
+            placeholder="输入消息..." 
+            v-model="newMessage" 
+            @keyup.enter="sendMessage" 
+          />
+          <button class="btn btn-primary" @click="sendMessage" :disabled="!newMessage.trim()">发送</button>
         </div>
       </div>
       
-      <!-- 未选择好友时的提示 -->
       <div class="no-selection" v-else>
-        <p>请选择一个好友开始聊天</p>
+        <p>选择一个会话开始聊天</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted } from 'vue'
+import { useUserStore } from '../store/user'
 import messageApi from '../api/messageApi'
+import { ElMessage } from 'element-plus'
 
-// 数据
-const friends = ref([])
-const selectedFriendId = ref(null)
-const newMessage = ref('')
+const userStore = useUserStore()
+const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+
+const conversations = ref([])
+const selectedUserId = ref(null)
+const selectedUser = ref(null)
 const messages = ref([])
-const loading = ref(false)
+const newMessage = ref('')
+const unreadCount = ref(0)
+const messagesContainer = ref(null)
+const currentUserId = ref(userStore.user?.id)
 
-// 模拟数据（当API调用失败时使用）
-const mockFriends = [
-  {
-    id: 1,
-    name: '科技达人',
-    avatar: 'https://via.placeholder.com/40',
-    lastMessage: 'iPhone 16 Pro Max真的很不错',
-    lastMessageTime: '10:00',
-    unreadCount: 2
-  },
-  {
-    id: 2,
-    name: '数码评测师',
-    avatar: 'https://via.placeholder.com/40',
-    lastMessage: '小米15 Ultra的相机表现如何？',
-    lastMessageTime: '昨天',
-    unreadCount: 0
-  },
-  {
-    id: 3,
-    name: '游戏爱好者',
-    avatar: 'https://via.placeholder.com/40',
-    lastMessage: '最近有什么好玩的游戏推荐吗？',
-    lastMessageTime: '2天前',
-    unreadCount: 1
-  }
-]
-
-const mockMessages = [
-  {
-    id: 1,
-    content: '你好，最近怎么样？',
-    time: '09:00',
-    isSent: false
-  },
-  {
-    id: 2,
-    content: '挺好的，刚入手了iPhone 16 Pro Max',
-    time: '09:30',
-    isSent: true
-  },
-  {
-    id: 3,
-    content: '哦，怎么样？好用吗？',
-    time: '09:45',
-    isSent: false
-  },
-  {
-    id: 4,
-    content: 'iPhone 16 Pro Max真的很不错',
-    time: '10:00',
-    isSent: true
-  }
-]
-
-const selectedFriend = computed(() => {
-  return friends.value.find(friend => friend.id === selectedFriendId.value) || null
-})
-
-// 获取好友列表（模拟数据，实际项目中需要从API获取）
-const fetchFriends = async () => {
-  try {
-    // 实际项目中这里应该调用API获取好友列表
-    // 暂时使用模拟数据
-    friends.value = mockFriends
-  } catch (error) {
-    console.error('Failed to fetch friends:', error)
-    friends.value = mockFriends
-  }
+const formatTime = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now - date
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return date.toLocaleDateString('zh-CN')
 }
 
-// 获取消息记录
-const fetchMessages = async (senderId, receiverId) => {
-  try {
-    const response = await messageApi.getMessagesBetweenUsers(senderId, receiverId)
-    if (response && response.length > 0) {
-      // 转换消息格式
-      messages.value = response.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        time: new Date(msg.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        isSent: msg.sender.id === 1 // 假设当前用户ID为1
-      }))
-    } else {
-      messages.value = mockMessages
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
+  })
+}
+
+const loadConversations = async () => {
+  try {
+    const response = await messageApi.getConversationList()
+    conversations.value = response.data || []
   } catch (error) {
-    console.error('Failed to fetch messages:', error)
-    messages.value = mockMessages
+    console.error('加载会话列表失败:', error)
   }
 }
 
-// 选择好友
-const selectFriend = async (friendId) => {
-  selectedFriendId.value = friendId
-  // 清空未读消息数
-  const friend = friends.value.find(f => f.id === friendId)
-  if (friend) {
-    friend.unreadCount = 0
+const loadUnreadCount = async () => {
+  try {
+    const response = await messageApi.getUnreadCount()
+    unreadCount.value = response.data || 0
+  } catch (error) {
+    console.error('加载未读数量失败:', error)
   }
-  // 获取消息记录
-  await fetchMessages(1, friendId) // 假设当前用户ID为1
 }
 
-// 发送消息
+const loadMessages = async (toUserId) => {
+  try {
+    const response = await messageApi.getConversation(toUserId, { page: 1, pageSize: 100 })
+    messages.value = response.data?.records || []
+    scrollToBottom()
+  } catch (error) {
+    console.error('加载消息失败:', error)
+    messages.value = []
+  }
+}
+
+const selectConversation = async (conv) => {
+  selectedUserId.value = conv.fromUserId
+  selectedUser.value = {
+    id: conv.fromUserId,
+    username: conv.fromUsername,
+    nickname: conv.fromUserNickname,
+    avatar: conv.fromUserAvatar
+  }
+  
+  await loadMessages(conv.fromUserId)
+  
+  try {
+    await messageApi.markConversationAsRead(conv.fromUserId)
+    await loadUnreadCount()
+  } catch (error) {
+    console.error('标记已读失败:', error)
+  }
+}
+
 const sendMessage = async () => {
-  if (newMessage.value.trim() && selectedFriendId.value) {
-    try {
-      const messageData = {
-        content: newMessage.value.trim(),
-        sender: {
-          id: 1 // 假设当前用户ID为1
-        },
-        receiver: {
-          id: selectedFriendId.value
-        }
-      }
-      const response = await messageApi.sendMessage(messageData)
-      if (response) {
-        // 使用返回的消息数据
-        const newMessageItem = {
-          id: response.id,
-          content: response.content,
-          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-          isSent: true
-        }
-        messages.value.push(newMessageItem)
-        
-        // 更新好友列表中的最后消息
-        const friend = friends.value.find(f => f.id === selectedFriendId.value)
-        if (friend) {
-          friend.lastMessage = newMessage.value.trim()
-          friend.lastMessageTime = '刚刚'
-        }
-        
-        newMessage.value = ''
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error)
-      // 失败时使用本地数据
-      const message = {
-        id: messages.value.length + 1,
-        content: newMessage.value.trim(),
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        isSent: true
-      }
-      messages.value.push(message)
-      
-      // 更新好友列表中的最后消息
-      const friend = friends.value.find(f => f.id === selectedFriendId.value)
-      if (friend) {
-        friend.lastMessage = newMessage.value.trim()
-        friend.lastMessageTime = '刚刚'
-      }
-      
-      newMessage.value = ''
-    }
+  if (!newMessage.value.trim() || !selectedUserId.value) return
+  
+  const content = newMessage.value.trim()
+  
+  try {
+    await messageApi.sendMessage({
+      toUserId: selectedUserId.value,
+      content: content
+    })
+    
+    messages.value.push({
+      id: Date.now(),
+      fromUserId: currentUserId.value,
+      toUserId: selectedUserId.value,
+      content: content,
+      createTime: new Date().toISOString()
+    })
+    
+    newMessage.value = ''
+    scrollToBottom()
+    
+    await loadConversations()
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    ElMessage.error('发送失败')
   }
 }
 
 onMounted(async () => {
-  loading.value = true
-  try {
-    await fetchFriends()
-    // 默认选择第一个好友
-    if (friends.value.length > 0) {
-      await selectFriend(friends.value[0].id)
-    }
-  } catch (error) {
-    console.error('Failed to initialize chat:', error)
-  } finally {
-    loading.value = false
+  if (!userStore.isLoggedIn) {
+    return
   }
+  
+  currentUserId.value = userStore.user?.id
+  await Promise.all([loadConversations(), loadUnreadCount()])
 })
 </script>
 
 <style scoped>
 .chat-page {
   width: 100%;
-  height: 80vh;
+  height: calc(100vh - 200px);
+  min-height: 500px;
 }
 
 .chat-container {
@@ -261,113 +212,104 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
-/* 好友列表 */
-.friends-list {
-  width: 300px;
+.conversations-list {
+  width: 320px;
   border-right: 1px solid #e5e5e5;
   display: flex;
   flex-direction: column;
 }
 
-.friends-header {
+.conversations-header {
   padding: 20px;
   border-bottom: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.friends-header h3 {
-  margin-bottom: 16px;
+.conversations-header h3 {
+  margin: 0;
+  font-size: 18px;
   color: #333;
 }
 
-.search-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #e5e5e5;
-  border-radius: 20px;
-  font-size: 14px;
+.unread-count {
+  background: #ff6b6b;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 
-.friend-items {
+.conversation-items {
   flex: 1;
   overflow-y: auto;
 }
 
-.friend-item {
+.conversation-item {
   display: flex;
   align-items: center;
   padding: 16px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.friend-item:hover {
+.conversation-item:hover {
   background-color: #f5f5f5;
 }
 
-.friend-item.active {
-  background-color: #f0f0f0;
+.conversation-item.active {
+  background-color: #e8f4fc;
 }
 
-.friend-avatar {
-  position: relative;
-  margin-right: 12px;
-}
-
-.friend-avatar img {
+.conv-avatar img {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   object-fit: cover;
+  margin-right: 12px;
 }
 
-.unread-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background-color: #ff6b6b;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 10px;
-  min-width: 20px;
-  text-align: center;
-}
-
-.friend-info {
+.conv-info {
   flex: 1;
   min-width: 0;
 }
 
-.friend-name {
-  font-size: 14px;
+.conv-name {
+  font-size: 15px;
   font-weight: 500;
   color: #333;
   margin-bottom: 4px;
 }
 
-.last-message {
-  font-size: 12px;
+.conv-last-message {
+  font-size: 13px;
   color: #999;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
 }
 
-.last-message-time {
-  font-size: 11px;
+.conv-time {
+  font-size: 12px;
   color: #ccc;
-  text-align: right;
+  margin-left: 8px;
 }
 
-/* 聊天区域 */
+.empty-conversations {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
 .chat-area {
   flex: 1;
   display: flex;
@@ -380,30 +322,33 @@ onMounted(async () => {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid #e5e5e5;
-  background-color: #f9f9f9;
+  background-color: #fafafa;
 }
 
-.chat-header .friend-info {
+.user-info {
   display: flex;
   align-items: center;
 }
 
-.chat-header .friend-avatar img {
+.user-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
   margin-right: 12px;
 }
 
-.chat-header .friend-name {
+.user-name {
   font-size: 16px;
   font-weight: 500;
   color: #333;
 }
 
-.chat-actions {
-  display: flex;
-  gap: 8px;
+.view-profile {
+  font-size: 12px;
+  color: #3498db;
+  margin-top: 4px;
+  display: block;
+  text-decoration: none;
 }
 
 .messages-container {
@@ -435,25 +380,25 @@ onMounted(async () => {
 }
 
 .message-item.sent .message-content {
-  background-color: #ff6b6b;
+  background-color: #3498db;
   color: white;
   border-bottom-right-radius: 4px;
 }
 
 .message-content p {
-  margin-bottom: 4px;
+  margin: 0 0 4px 0;
   line-height: 1.4;
+  word-break: break-word;
 }
 
 .message-time {
   font-size: 11px;
   opacity: 0.7;
-  text-align: right;
 }
 
 .message-input-container {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid #e5e5e5;
   background-color: #fff;
@@ -461,13 +406,40 @@ onMounted(async () => {
 
 .message-input {
   flex: 1;
-  padding: 12px;
+  padding: 12px 16px;
   border: 1px solid #e5e5e5;
-  border-radius: 20px;
+  border-radius: 24px;
   font-size: 14px;
+  outline: none;
 }
 
-/* 未选择好友时的提示 */
+.message-input:focus {
+  border-color: #3498db;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: #3498db;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .no-selection {
   flex: 1;
   display: flex;
@@ -478,25 +450,20 @@ onMounted(async () => {
   font-size: 16px;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .chat-container {
     flex-direction: column;
   }
   
-  .friends-list {
+  .conversations-list {
     width: 100%;
-    height: 30%;
+    height: 40%;
     border-right: none;
     border-bottom: 1px solid #e5e5e5;
   }
   
   .chat-area {
-    height: 70%;
-  }
-  
-  .message-item {
-    max-width: 85%;
+    height: 60%;
   }
 }
 </style>

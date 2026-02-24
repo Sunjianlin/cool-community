@@ -1,19 +1,24 @@
 import axios from './axios'
 
 const commentApi = {
-  // 获取帖子的评论
-  getCommentsByPostId: (postId) => {
-    return axios.get(`/api/comments/post/${postId}`)
+  getCommentsByPostId: (postId, params) => {
+    return axios.get(`/comment/list/${postId}`, { params })
   },
   
-  // 创建评论
   createComment: (comment) => {
-    return axios.post('/api/comments', comment)
+    return axios.post('/comment/create', comment)
   },
   
-  // 点赞评论
   likeComment: (id) => {
-    return axios.post(`/api/comments/${id}/like`)
+    return axios.post(`/comment/like/${id}`)
+  },
+  
+  unlikeComment: (id) => {
+    return axios.delete(`/comment/unlike/${id}`)
+  },
+  
+  deleteComment: (id) => {
+    return axios.delete(`/comment/delete/${id}`)
   }
 }
 

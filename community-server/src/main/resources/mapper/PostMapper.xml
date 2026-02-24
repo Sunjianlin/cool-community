@@ -12,6 +12,12 @@
             <if test="userId != null">
                 AND user_id = #{userId}
             </if>
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+            <if test="productId != null">
+                AND product_id = #{productId}
+            </if>
             <if test="status != null">
                 AND status = #{status}
             </if>
@@ -22,20 +28,28 @@
     </select>
 
     <select id="list" resultType="com.cool.pojo.vo.PostVO">
-        SELECT p.id, p.user_id, p.topic_id, p.title, p.content, p.images, 
-               p.like_count, p.comment_count, p.collect_count, p.view_count,
+        SELECT p.id, p.user_id, p.topic_id, p.product_id, p.title, p.content, p.images, 
+               p.type, p.like_count, p.comment_count, p.collect_count, p.view_count,
                p.status, p.is_top, p.is_essence, p.create_time,
                u.username, u.avatar as user_avatar, u.nickname as user_nickname, 
-               t.name as topic_name
+               t.name as topic_name,
+               pr.rating as product_rating
         FROM post p
         LEFT JOIN user u ON p.user_id = u.id
         LEFT JOIN topic t ON p.topic_id = t.id
+        LEFT JOIN product_review pr ON p.id = pr.post_id
         WHERE p.deleted = 0
         <if test="topicId != null">
             AND p.topic_id = #{topicId}
         </if>
         <if test="userId != null">
             AND p.user_id = #{userId}
+        </if>
+        <if test="type != null">
+            AND p.type = #{type}
+        </if>
+        <if test="productId != null">
+            AND p.product_id = #{productId}
         </if>
         <if test="status != null">
             AND p.status = #{status}
@@ -48,14 +62,16 @@
     </select>
 
     <select id="getDetailById" resultType="com.cool.pojo.vo.PostVO">
-        SELECT p.id, p.user_id, p.topic_id, p.title, p.content, p.images, 
-               p.like_count, p.comment_count, p.collect_count, p.view_count,
+        SELECT p.id, p.user_id, p.topic_id, p.product_id, p.title, p.content, p.images, 
+               p.type, p.like_count, p.comment_count, p.collect_count, p.view_count,
                p.status, p.is_top, p.is_essence, p.create_time,
                u.username, u.avatar as user_avatar, u.nickname as user_nickname, 
-               t.name as topic_name
+               t.name as topic_name,
+               pr.rating as product_rating
         FROM post p
         LEFT JOIN user u ON p.user_id = u.id
         LEFT JOIN topic t ON p.topic_id = t.id
+        LEFT JOIN product_review pr ON p.id = pr.post_id
         WHERE p.id = #{id} AND p.deleted = 0
     </select>
 

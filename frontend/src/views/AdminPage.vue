@@ -2,26 +2,35 @@
   <div class="admin-page">
     <h2 class="page-title">管理中心</h2>
     
-    <!-- 管理导航 -->
     <div class="admin-nav">
       <button 
         class="admin-nav-btn" 
         v-for="navItem in navItems" 
         :key="navItem.id"
         :class="{ active: currentNav === navItem.id }"
-        @click="currentNav = navItem.id"
+        @click="switchNav(navItem.id)"
       >
         {{ navItem.name }}
       </button>
     </div>
     
-    <!-- 话题管理 -->
     <div v-if="currentNav === 'topics'" class="admin-section">
       <div class="section-header">
         <h3 class="section-title">话题管理</h3>
         <button class="btn btn-primary" @click="showTopicDialog()">添加话题</button>
       </div>
-      <el-table :data="topics" style="width: 100%">
+      
+      <div class="filter-section">
+        <el-input 
+          v-model="topicFilter.keyword" 
+          placeholder="搜索话题名称" 
+          style="width: 200px; margin-right: 10px" 
+          @keyup.enter="loadTopics"
+        />
+        <el-button type="primary" @click="loadTopics">搜索</el-button>
+      </div>
+      
+      <el-table :data="topics" style="width: 100%" v-loading="loading.topics">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="name" label="名称" width="150" />
         <el-table-column prop="description" label="描述" />
@@ -34,28 +43,41 @@
           </template>
         </el-table-column>
       </el-table>
+      
+      <div class="pagination-section">
+        <el-pagination
+          v-model:current-page="topicPagination.currentPage"
+          v-model:page-size="topicPagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="topicPagination.total"
+          @size-change="loadTopics"
+          @current-change="loadTopics"
+        />
+      </div>
     </div>
     
-    <!-- 产品管理 -->
     <div v-if="currentNav === 'products'" class="admin-section">
       <div class="section-header">
         <h3 class="section-title">产品管理</h3>
         <button class="btn btn-primary" @click="showProductDialog()">添加产品</button>
       </div>
       
-      <div class="filter-bar" style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-        <el-select v-model="productFilters.categoryId" placeholder="选择品类" clearable style="width: 150px" @change="handleProductFilterChange">
-          <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+      <div class="filter-section">
+        <el-select v-model="productFilter.categoryId" placeholder="选择分类" style="width: 150px; margin-right: 10px">
+          <el-option label="全部分类" value="" />
+          <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
         </el-select>
-        <el-select v-model="productFilters.brand" placeholder="选择品牌" clearable style="width: 150px" @change="handleProductFilterChange">
-          <el-option v-for="brand in brands" :key="brand.id" :label="brand.name" :value="brand.name" />
-        </el-select>
-        <el-input v-model="productFilters.keyword" placeholder="搜索产品" style="width: 200px" @input="handleProductFilterChange">
-          <template #prefix>🔍</template>
-        </el-input>
+        <el-input 
+          v-model="productFilter.keyword" 
+          placeholder="搜索产品名称或品牌" 
+          style="width: 200px; margin-right: 10px" 
+          @keyup.enter="loadProducts"
+        />
+        <el-button type="primary" @click="loadProducts">搜索</el-button>
       </div>
       
-      <el-table :data="products" style="width: 100%">
+      <el-table :data="products" style="width: 100%" v-loading="loading.products">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column label="图片" width="100">
           <template #default="scope">
@@ -64,12 +86,12 @@
         </el-table-column>
         <el-table-column prop="name" label="名称" width="150" />
         <el-table-column prop="brand" label="品牌" width="100" />
-        <el-table-column label="品类" width="120">
+        <el-table-column prop="price" label="价格" width="100" />
+        <el-table-column label="分类" width="120">
           <template #default="scope">
-            <el-tag v-if="scope.row.category" size="small">{{ scope.row.category.name }}</el-tag>
+            {{ scope.row.categoryName || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="price" label="价格" width="100" />
         <el-table-column label="操作" width="180">
           <template #default="scope">
             <el-button size="small" @click="showProductDialog(scope.row)">编辑</el-button>
@@ -78,18 +100,19 @@
         </el-table-column>
       </el-table>
       
-      <el-pagination
-        v-if="productPage.total > 0"
-        style="margin-top: 16px; justify-content: center"
-        layout="prev, pager, next, total"
-        :total="productPage.total"
-        :page-size="productPage.size"
-        :current-page="productPage.page"
-        @current-change="handleProductPageChange"
-      />
+      <div class="pagination-section">
+        <el-pagination
+          v-model:current-page="productPagination.currentPage"
+          v-model:page-size="productPagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="productPagination.total"
+          @size-change="loadProducts"
+          @current-change="loadProducts"
+        />
+      </div>
     </div>
     
-    <!-- 品牌管理 -->
     <div v-if="currentNav === 'brands'" class="admin-section">
       <div class="section-header">
         <h3 class="section-title">品牌管理</h3>
@@ -113,7 +136,6 @@
       </el-table>
     </div>
     
-    <!-- 用户管理 -->
     <div v-if="currentNav === 'users'" class="admin-section">
       <h3 class="section-title">用户管理</h3>
       <el-table :data="users" style="width: 100%">
@@ -124,62 +146,54 @@
           </template>
         </el-table-column>
         <el-table-column prop="username" label="用户名" width="120" />
-        <el-table-column prop="bio" label="个人简介" />
-        <el-table-column label="角色" width="150">
-          <template #default="scope">
-            <el-tag v-for="role in scope.row.roles" :key="role.id" size="small" style="margin-right: 4px;">
-              {{ role.name }}
-            </el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column prop="nickname" label="昵称" width="120" />
+        <el-table-column prop="roleName" label="角色" width="100" />
         <el-table-column label="状态" width="100">
           <template #default="scope">
-            <el-tag v-if="scope.row.isBanned" type="danger" size="small">已禁言</el-tag>
+            <el-tag v-if="scope.row.status === 0" type="danger" size="small">已禁用</el-tag>
             <el-tag v-else type="success" size="small">正常</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="scope">
-            <el-button size="small" @click="banUserItem(scope.row.id)" v-if="!scope.row.isBanned">禁言</el-button>
-            <el-button size="small" type="success" @click="unbanUserItem(scope.row.id)" v-else>解除</el-button>
+            <el-button size="small" @click="banUserItem(scope.row.id)" v-if="scope.row.status === 1">禁用</el-button>
+            <el-button size="small" type="success" @click="unbanUserItem(scope.row.id)" v-else>解禁</el-button>
             <el-button size="small" type="danger" @click="deleteUserItem(scope.row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
     
-    <!-- 帖子管理 -->
     <div v-if="currentNav === 'posts'" class="admin-section">
       <h3 class="section-title">帖子管理</h3>
       <el-table :data="posts" style="width: 100%">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="title" label="标题" width="200" />
-        <el-table-column prop="content" label="内容">
+        <el-table-column label="内容">
           <template #default="scope">
             <span style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
               {{ scope.row.content }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="user.username" label="作者" width="100" />
+        <el-table-column prop="username" label="作者" width="100" />
         <el-table-column label="状态" width="100">
           <template #default="scope">
-            <el-tag v-if="scope.row.status === 'APPROVED'" type="success" size="small">已通过</el-tag>
-            <el-tag v-else-if="scope.row.status === 'REJECTED'" type="danger" size="small">已拒绝</el-tag>
+            <el-tag v-if="scope.row.status === 1" type="success" size="small">已通过</el-tag>
+            <el-tag v-else-if="scope.row.status === 2" type="danger" size="small">已拒绝</el-tag>
             <el-tag v-else type="warning" size="small">待审核</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="scope">
-            <el-button size="small" type="success" @click="approvePostItem(scope.row.id)" v-if="scope.row.status !== 'APPROVED'">通过</el-button>
-            <el-button size="small" type="danger" @click="rejectPostItem(scope.row.id)" v-if="scope.row.status !== 'REJECTED'">拒绝</el-button>
+            <el-button size="small" type="success" @click="approvePostItem(scope.row.id)" v-if="scope.row.status !== 1">通过</el-button>
+            <el-button size="small" type="danger" @click="rejectPostItem(scope.row.id)" v-if="scope.row.status !== 2">拒绝</el-button>
             <el-button size="small" type="danger" @click="deletePostItem(scope.row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
     
-    <!-- 话题对话框 -->
     <el-dialog v-model="topicDialogVisible" :title="editingTopic.id ? '编辑话题' : '添加话题'" width="500px">
       <el-form :model="editingTopic" label-width="80px">
         <el-form-item label="名称">
@@ -189,7 +203,9 @@
           <el-input v-model="editingTopic.description" type="textarea" rows="3" placeholder="话题描述" />
         </el-form-item>
         <el-form-item label="分类">
-          <el-input v-model="editingTopic.category" placeholder="话题分类" />
+          <el-select v-model="editingTopic.category" placeholder="选择话题分类">
+            <el-option v-for="category in topicCategories" :key="category.name" :label="category.name" :value="category.name" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -198,154 +214,41 @@
       </template>
     </el-dialog>
     
-    <!-- 产品对话框 -->
-    <el-dialog v-model="productDialogVisible" :title="editingProduct.id ? '编辑产品' : '添加产品'" width="700px">
+    <el-dialog v-model="productDialogVisible" :title="editingProduct.id ? '编辑产品' : '添加产品'" width="500px">
       <el-form :model="editingProduct" label-width="80px">
         <el-form-item label="名称">
           <el-input v-model="editingProduct.name" placeholder="产品名称" />
         </el-form-item>
         <el-form-item label="品牌">
-          <el-select v-model="editingProduct.brand" placeholder="选择品牌" style="width: 100%" allow-create filterable>
+          <el-select v-model="editingProduct.brand" placeholder="选择品牌">
             <el-option v-for="brand in brands" :key="brand.id" :label="brand.name" :value="brand.name" />
           </el-select>
         </el-form-item>
-        <el-form-item label="品类">
-          <el-select v-model="editingProduct.categoryId" placeholder="选择品类" style="width: 100%">
-            <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+        <el-form-item label="分类">
+          <el-select v-model="editingProduct.categoryId" placeholder="选择产品分类">
+            <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="价格">
-          <el-input v-model="editingProduct.price" placeholder="参考价格，如 ¥9999起" />
+          <el-input v-model="editingProduct.price" placeholder="参考价格" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="editingProduct.description" type="textarea" rows="3" placeholder="产品描述" />
         </el-form-item>
         <el-form-item label="图片">
           <el-upload
-            class="product-image-uploader"
-            action="http://localhost:8082/upload/product-image"
+            class="avatar-uploader"
+            :action="uploadUrl"
             :headers="uploadHeaders"
             :show-file-list="false"
             :on-success="handleProductImageSuccess"
-            :on-error="handleProductImageError"
-            :before-upload="beforeProductUpload"
+            :before-upload="beforeUpload"
+            name="file"
           >
-            <img v-if="editingProduct.image" :src="editingProduct.image" class="product-image-preview" />
+            <img v-if="editingProduct.image" :src="editingProduct.image" class="avatar-preview" />
             <el-icon v-else class="upload-icon"><Plus /></el-icon>
           </el-upload>
         </el-form-item>
-        
-        <!-- 根据品类显示不同的配置项 -->
-        <el-divider>产品配置</el-divider>
-        
-        <!-- 智能手机配置 -->
-        <div v-if="isPhoneCategory">
-          <el-form-item label="处理器">
-            <el-input v-model="specs.processor" placeholder="如 骁龙8 Gen 3" />
-          </el-form-item>
-          <el-form-item label="内存">
-            <el-input v-model="specs.ram" placeholder="如 12GB" />
-          </el-form-item>
-          <el-form-item label="存储">
-            <el-input v-model="specs.storage" placeholder="如 256GB" />
-          </el-form-item>
-          <el-form-item label="屏幕">
-            <el-input v-model="specs.screen" placeholder="如 6.7英寸 OLED" />
-          </el-form-item>
-          <el-form-item label="电池">
-            <el-input v-model="specs.battery" placeholder="如 5000mAh" />
-          </el-form-item>
-          <el-form-item label="摄像头">
-            <el-input v-model="specs.camera" placeholder="如 5000万像素主摄" />
-          </el-form-item>
-        </div>
-        
-        <!-- 笔记本电脑配置 -->
-        <div v-if="isLaptopCategory">
-          <el-form-item label="处理器">
-            <el-input v-model="specs.processor" placeholder="如 Intel i7-13700H" />
-          </el-form-item>
-          <el-form-item label="内存">
-            <el-input v-model="specs.ram" placeholder="如 16GB" />
-          </el-form-item>
-          <el-form-item label="存储">
-            <el-input v-model="specs.storage" placeholder="如 512GB SSD" />
-          </el-form-item>
-          <el-form-item label="显卡">
-            <el-input v-model="specs.graphics" placeholder="如 RTX 4060" />
-          </el-form-item>
-          <el-form-item label="屏幕">
-            <el-input v-model="specs.screen" placeholder="如 15.6英寸 2.5K" />
-          </el-form-item>
-          <el-form-item label="重量">
-            <el-input v-model="specs.weight" placeholder="如 1.8kg" />
-          </el-form-item>
-        </div>
-        
-        <!-- 智能手表配置 -->
-        <div v-if="isWatchCategory">
-          <el-form-item label="屏幕">
-            <el-input v-model="specs.screen" placeholder="如 1.5英寸 AMOLED" />
-          </el-form-item>
-          <el-form-item label="电池">
-            <el-input v-model="specs.battery" placeholder="如 500mAh" />
-          </el-form-item>
-          <el-form-item label="防水">
-            <el-input v-model="specs.waterproof" placeholder="如 5ATM" />
-          </el-form-item>
-          <el-form-item label="功能">
-            <el-input v-model="specs.features" placeholder="如 心率监测、血氧" />
-          </el-form-item>
-        </div>
-        
-        <!-- 耳机配置 -->
-        <div v-if="isHeadphoneCategory">
-          <el-form-item label="类型">
-            <el-input v-model="specs.type" placeholder="如 入耳式、头戴式" />
-          </el-form-item>
-          <el-form-item label="降噪">
-            <el-input v-model="specs.noiseReduction" placeholder="如 主动降噪" />
-          </el-form-item>
-          <el-form-item label="续航">
-            <el-input v-model="specs.battery" placeholder="如 30小时" />
-          </el-form-item>
-          <el-form-item label="连接">
-            <el-input v-model="specs.connection" placeholder="如 蓝牙5.3" />
-          </el-form-item>
-        </div>
-        
-        <!-- 路由器配置 -->
-        <div v-if="isRouterCategory">
-          <el-form-item label="无线速率">
-            <el-input v-model="specs.speed" placeholder="如 AX3000" />
-          </el-form-item>
-          <el-form-item label="频段">
-            <el-input v-model="specs.band" placeholder="如 双频" />
-          </el-form-item>
-          <el-form-item label="网口">
-            <el-input v-model="specs.ports" placeholder="如 4个千兆网口" />
-          </el-form-item>
-          <el-form-item label="带机量">
-            <el-input v-model="specs.devices" placeholder="如 256台" />
-          </el-form-item>
-        </div>
-        
-        <!-- 机械键盘配置 -->
-        <div v-if="isKeyboardCategory">
-          <el-form-item label="轴体">
-            <el-input v-model="specs.switch" placeholder="如 青轴、红轴" />
-          </el-form-item>
-          <el-form-item label="配列">
-            <el-input v-model="specs.layout" placeholder="如 104键、87键" />
-          </el-form-item>
-          <el-form-item label="连接方式">
-            <el-input v-model="specs.connection" placeholder="如 有线、无线" />
-          </el-form-item>
-          <el-form-item label="背光">
-            <el-input v-model="specs.backlight" placeholder="如 RGB" />
-          </el-form-item>
-        </div>
-        
       </el-form>
       <template #footer>
         <el-button @click="productDialogVisible = false">取消</el-button>
@@ -353,7 +256,6 @@
       </template>
     </el-dialog>
     
-    <!-- 品牌对话框 -->
     <el-dialog v-model="brandDialogVisible" :title="editingBrand.id ? '编辑品牌' : '添加品牌'" width="500px">
       <el-form :model="editingBrand" label-width="80px">
         <el-form-item label="名称">
@@ -361,15 +263,15 @@
         </el-form-item>
         <el-form-item label="Logo">
           <el-upload
-            class="product-image-uploader"
-            action="http://localhost:8082/upload/brand-logo"
+            class="avatar-uploader"
+            :action="uploadUrl"
             :headers="uploadHeaders"
             :show-file-list="false"
             :on-success="handleBrandLogoSuccess"
-            :on-error="handleBrandLogoError"
-            :before-upload="beforeBrandLogoUpload"
+            :before-upload="beforeUpload"
+            name="file"
           >
-            <img v-if="editingBrand.logo" :src="editingBrand.logo" class="product-image-preview" />
+            <img v-if="editingBrand.logo" :src="editingBrand.logo" class="avatar-preview" />
             <el-icon v-else class="upload-icon"><Plus /></el-icon>
           </el-upload>
         </el-form-item>
@@ -383,9 +285,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import adminApi from '../api/adminApi'
+import topicApi from '../api/topicApi'
+import productApi from '../api/productApi'
+import brandApi from '../api/brandApi'
+import categoryApi from '../api/categoryApi'
 
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 const defaultProductImage = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
@@ -406,154 +313,189 @@ const brands = ref([])
 const users = ref([])
 const posts = ref([])
 const categories = ref([])
-
-const productPage = ref({
-  page: 1,
-  size: 10,
-  total: 0,
-  totalPages: 0
-})
-const productFilters = ref({
-  categoryId: null,
-  brand: '',
-  keyword: ''
-})
+const topicCategories = ref([])
 
 const topicDialogVisible = ref(false)
 const productDialogVisible = ref(false)
 const brandDialogVisible = ref(false)
 const saving = ref(false)
+const loading = ref({
+  topics: false,
+  products: false,
+  brands: false,
+  users: false,
+  posts: false
+})
 
 const editingTopic = ref({ id: null, name: '', description: '', category: '' })
-const editingProduct = ref({ id: null, name: '', description: '', price: '', image: '', categoryId: null, brand: '' })
+const editingProduct = ref({ id: null, name: '', description: '', price: '', image: '', brand: '', categoryId: '' })
 const editingBrand = ref({ id: null, name: '', logo: '' })
-const specs = ref({})
 
-const uploadHeaders = ref({
+const topicFilter = ref({ keyword: '' })
+const productFilter = ref({ categoryId: '', keyword: '' })
+
+const topicPagination = ref({ currentPage: 1, pageSize: 10, total: 0 })
+const productPagination = ref({ currentPage: 1, pageSize: 10, total: 0 })
+
+const uploadUrl = computed(() => 'http://localhost:8082/api/file/upload')
+
+const uploadHeaders = computed(() => ({
   Authorization: localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
-})
+}))
 
-const getCategoryName = (categoryId) => {
-  const category = categories.value.find(c => c.id === categoryId)
-  return category ? category.name : ''
-}
-
-const isPhoneCategory = computed(() => {
-  const name = getCategoryName(editingProduct.value.categoryId)
-  return name.includes('手机') || name.includes('Phone')
-})
-
-const isLaptopCategory = computed(() => {
-  const name = getCategoryName(editingProduct.value.categoryId)
-  return name.includes('笔记本') || name.includes('Laptop') || name.includes('电脑')
-})
-
-const isWatchCategory = computed(() => {
-  const name = getCategoryName(editingProduct.value.categoryId)
-  return name.includes('手表') || name.includes('Watch') || name.includes('手环')
-})
-
-const isHeadphoneCategory = computed(() => {
-  const name = getCategoryName(editingProduct.value.categoryId)
-  return name.includes('耳机') || name.includes('耳机')
-})
-
-const isRouterCategory = computed(() => {
-  const name = getCategoryName(editingProduct.value.categoryId)
-  return name.includes('路由') || name.includes('Router')
-})
-
-const isKeyboardCategory = computed(() => {
-  const name = getCategoryName(editingProduct.value.categoryId)
-  return name.includes('键盘') || name.includes('Keyboard')
-})
-
-const loadCategories = async () => {
-  try {
-    const response = await fetch('http://localhost:8082/product-categories')
-    if (response.ok) {
-      categories.value = await response.json()
-    }
-  } catch (error) {
-    console.error('加载品类失败:', error)
-  }
+const switchNav = (navId) => {
+  currentNav.value = navId
 }
 
 const loadTopics = async () => {
+  loading.value.topics = true
   try {
-    const response = await fetch('http://localhost:8082/topics')
-    if (response.ok) {
-      topics.value = await response.json()
+    const params = {
+      page: topicPagination.value.currentPage,
+      pageSize: topicPagination.value.pageSize,
+      keyword: topicFilter.value.keyword
     }
+    const response = await topicApi.getTopicList(params)
+    topics.value = response.data?.records || []
+    topicPagination.value.total = response.data?.total || 0
   } catch (error) {
     console.error('加载话题失败:', error)
+  } finally {
+    loading.value.topics = false
   }
 }
 
 const loadProducts = async () => {
+  loading.value.products = true
   try {
-    const params = new URLSearchParams()
-    params.append('page', productPage.value.page)
-    params.append('size', productPage.value.size)
-    if (productFilters.value.categoryId) params.append('categoryId', productFilters.value.categoryId)
-    if (productFilters.value.brand) params.append('brand', productFilters.value.brand)
-    if (productFilters.value.keyword) params.append('keyword', productFilters.value.keyword)
-    
-    const response = await fetch(`http://localhost:8082/products/page?${params}`)
-    if (response.ok) {
-      const data = await response.json()
-      products.value = data.list
-      productPage.value.total = data.total
-      productPage.value.totalPages = data.totalPages
+    const params = {
+      page: productPagination.value.currentPage,
+      pageSize: productPagination.value.pageSize,
+      categoryId: productFilter.value.categoryId || undefined,
+      keyword: productFilter.value.keyword
     }
+    const response = await productApi.getProductList(params)
+    products.value = response.data?.records || []
+    productPagination.value.total = response.data?.total || 0
   } catch (error) {
     console.error('加载产品失败:', error)
+  } finally {
+    loading.value.products = false
   }
 }
 
-const handleProductFilterChange = () => {
-  productPage.value.page = 1
-  loadProducts()
+const loadCategories = async () => {
+  try {
+    const response = await categoryApi.getAllCategories()
+    // 检查响应结构
+    if (response && typeof response === 'object') {
+      // 如果响应包含data字段，使用response.data
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        categories.value = response.data
+      } 
+      // 如果响应本身就是数组，直接使用
+      else if (Array.isArray(response) && response.length > 0) {
+        categories.value = response
+      } 
+      // 否则使用模拟分类
+      else {
+        // 使用模拟分类
+        categories.value = [
+          { id: 1, name: '手机' },
+          { id: 2, name: '笔记本电脑' },
+          { id: 3, name: '耳机' },
+          { id: 4, name: '网络设备' },
+          { id: 5, name: '键盘' },
+          { id: 6, name: '鼠标' }
+        ]
+      }
+    } else {
+      // 使用模拟分类
+      categories.value = [
+        { id: 1, name: '手机' },
+        { id: 2, name: '笔记本电脑' },
+        { id: 3, name: '耳机' },
+        { id: 4, name: '网络设备' },
+        { id: 5, name: '键盘' },
+        { id: 6, name: '鼠标' }
+      ]
+    }
+  } catch (error) {
+    console.error('加载产品分类失败:', error)
+    // 使用模拟分类
+    categories.value = [
+      { id: 1, name: '手机' },
+      { id: 2, name: '笔记本电脑' },
+      { id: 3, name: '耳机' },
+      { id: 4, name: '网络设备' },
+      { id: 5, name: '键盘' },
+      { id: 6, name: '鼠标' }
+    ]
+  }
 }
 
-const handleProductPageChange = (page) => {
-  productPage.value.page = page
-  loadProducts()
+const loadTopicCategories = async () => {
+  try {
+    // 这里假设后端有专门的话题分类API，如果没有，可以使用产品分类或硬编码一些分类
+    // const response = await topicApi.getTopicCategories()
+    // topicCategories.value = response.data || []
+    
+    // 暂时使用硬编码的话题分类
+    topicCategories.value = [
+      { name: '科技' },
+      { name: '数码' },
+      { name: '游戏' },
+      { name: '生活' },
+      { name: '娱乐' },
+      { name: '体育' },
+      { name: '财经' },
+      { name: '教育' }
+    ]
+  } catch (error) {
+    console.error('加载话题分类失败:', error)
+    // 如果加载失败，使用默认分类
+    topicCategories.value = [
+      { name: '科技' },
+      { name: '数码' },
+      { name: '游戏' },
+      { name: '生活' }
+    ]
+  }
 }
 
 const loadBrands = async () => {
+  loading.value.brands = true
   try {
-    const response = await fetch('http://localhost:8082/brands')
-    if (response.ok) {
-      brands.value = await response.json()
-    }
+    const response = await brandApi.getAllBrands()
+    brands.value = response.data || []
   } catch (error) {
     console.error('加载品牌失败:', error)
+  } finally {
+    loading.value.brands = false
   }
 }
 
 const loadUsers = async () => {
+  loading.value.users = true
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch('http://localhost:8082/users', {
-      headers: { Authorization: token ? `Bearer ${token}` : '' }
-    })
-    if (response.ok) {
-      users.value = await response.json()
-    }
+    const response = await adminApi.getUserList({ page: 1, pageSize: 100 })
+    users.value = response.data?.records || []
   } catch (error) {
     console.error('加载用户失败:', error)
+  } finally {
+    loading.value.users = false
   }
 }
 
 const loadPosts = async () => {
+  loading.value.posts = true
   try {
-    const response = await fetch('http://localhost:8082/posts')
-    if (response.ok) {
-      posts.value = await response.json()
-    }
+    const response = await adminApi.getPostList({ page: 1, pageSize: 100 })
+    posts.value = response.data?.records || []
   } catch (error) {
     console.error('加载帖子失败:', error)
+  } finally {
+    loading.value.posts = false
   }
 }
 
@@ -573,26 +515,15 @@ const saveTopic = async () => {
   }
   saving.value = true
   try {
-    const token = localStorage.getItem('token')
-    const url = editingTopic.value.id ? `http://localhost:8082/topics/${editingTopic.value.id}` : 'http://localhost:8082/topics'
-    const method = editingTopic.value.id ? 'PUT' : 'POST'
-    
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
-      body: JSON.stringify(editingTopic.value)
-    })
-    
-    if (response.ok) {
-      ElMessage.success(editingTopic.value.id ? '话题更新成功' : '话题添加成功')
-      topicDialogVisible.value = false
-      loadTopics()
+    if (editingTopic.value.id) {
+      await adminApi.updateTopic(editingTopic.value)
+      ElMessage.success('话题更新成功')
     } else {
-      ElMessage.error('操作失败')
+      await adminApi.createTopic(editingTopic.value)
+      ElMessage.success('话题添加成功')
     }
+    topicDialogVisible.value = false
+    loadTopics()
   } catch (error) {
     console.error('保存话题失败:', error)
     ElMessage.error('操作失败')
@@ -603,18 +534,9 @@ const saveTopic = async () => {
 
 const deleteTopicItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/topics/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('话题删除成功')
-      loadTopics()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await adminApi.deleteTopic(id)
+    ElMessage.success('话题删除成功')
+    loadTopics()
   } catch (error) {
     console.error('删除话题失败:', error)
     ElMessage.error('删除失败')
@@ -623,36 +545,19 @@ const deleteTopicItem = async (id) => {
 
 const showProductDialog = (product = null) => {
   if (product) {
-    editingProduct.value = { 
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      image: product.image,
-      categoryId: product.categoryId,
-      brand: product.brand
-    }
-    if (product.specs) {
-      try {
-        specs.value = typeof product.specs === 'string' ? JSON.parse(product.specs) : product.specs
-      } catch {
-        specs.value = {}
-      }
-    } else {
-      specs.value = {}
+    editingProduct.value = { ...product }
+    // 确保categoryId属性存在
+    if (!editingProduct.value.categoryId) {
+      // 尝试从不同的字段名获取分类ID
+      editingProduct.value.categoryId = product.category_id || product.categoryId || ''
     }
   } else {
-    editingProduct.value = { id: null, name: '', description: '', price: '', image: '', categoryId: null, brand: '' }
-    specs.value = {}
+    editingProduct.value = { id: null, name: '', description: '', price: '', image: '', brand: '', categoryId: '' }
   }
   productDialogVisible.value = true
 }
 
-watch(() => editingProduct.value.categoryId, () => {
-  specs.value = {}
-})
-
-const beforeProductUpload = (file) => {
+const beforeUpload = (file) => {
   const isImage = file.type.startsWith('image/')
   const isLt10M = file.size / 1024 / 1024 < 10
   if (!isImage) ElMessage.error('只能上传图片文件')
@@ -661,16 +566,21 @@ const beforeProductUpload = (file) => {
 }
 
 const handleProductImageSuccess = (response) => {
-  if (response.success) {
-    editingProduct.value.image = response.url
+  if (response.code === 200) {
+    editingProduct.value.image = response.data
     ElMessage.success('图片上传成功')
   } else {
     ElMessage.error(response.message || '图片上传失败')
   }
 }
 
-const handleProductImageError = () => {
-  ElMessage.error('图片上传失败')
+const handleBrandLogoSuccess = (response) => {
+  if (response.code === 200) {
+    editingBrand.value.logo = response.data
+    ElMessage.success('Logo上传成功')
+  } else {
+    ElMessage.error(response.message || 'Logo上传失败')
+  }
 }
 
 const saveProduct = async () => {
@@ -678,42 +588,17 @@ const saveProduct = async () => {
     ElMessage.warning('请输入产品名称')
     return
   }
-  if (!editingProduct.value.brand) {
-    ElMessage.warning('请输入品牌')
-    return
-  }
-  if (!editingProduct.value.categoryId) {
-    ElMessage.warning('请选择品类')
-    return
-  }
   saving.value = true
   try {
-    const token = localStorage.getItem('token')
-    
-    const productData = {
-      ...editingProduct.value,
-      specs: Object.keys(specs.value).length > 0 ? JSON.stringify(specs.value) : null
-    }
-    
-    const url = editingProduct.value.id ? `http://localhost:8082/products/${editingProduct.value.id}` : 'http://localhost:8082/products'
-    const method = editingProduct.value.id ? 'PUT' : 'POST'
-    
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
-      body: JSON.stringify(productData)
-    })
-    
-    if (response.ok) {
-      ElMessage.success(editingProduct.value.id ? '产品更新成功' : '产品添加成功')
-      productDialogVisible.value = false
-      loadProducts()
+    if (editingProduct.value.id) {
+      await adminApi.updateProduct(editingProduct.value)
+      ElMessage.success('产品更新成功')
     } else {
-      ElMessage.error('操作失败')
+      await adminApi.createProduct(editingProduct.value)
+      ElMessage.success('产品添加成功')
     }
+    productDialogVisible.value = false
+    loadProducts()
   } catch (error) {
     console.error('保存产品失败:', error)
     ElMessage.error('操作失败')
@@ -724,18 +609,9 @@ const saveProduct = async () => {
 
 const deleteProductItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/products/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('产品删除成功')
-      loadProducts()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await adminApi.deleteProduct(id)
+    ElMessage.success('产品删除成功')
+    loadProducts()
   } catch (error) {
     console.error('删除产品失败:', error)
     ElMessage.error('删除失败')
@@ -744,32 +620,11 @@ const deleteProductItem = async (id) => {
 
 const showBrandDialog = (brand = null) => {
   if (brand) {
-    editingBrand.value = { id: brand.id, name: brand.name, logo: brand.logo }
+    editingBrand.value = { ...brand }
   } else {
     editingBrand.value = { id: null, name: '', logo: '' }
   }
   brandDialogVisible.value = true
-}
-
-const beforeBrandLogoUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt5M = file.size / 1024 / 1024 < 5
-  if (!isImage) ElMessage.error('只能上传图片文件')
-  if (!isLt5M) ElMessage.error('图片大小不能超过5MB')
-  return isImage && isLt5M
-}
-
-const handleBrandLogoSuccess = (response) => {
-  if (response.success) {
-    editingBrand.value.logo = response.url
-    ElMessage.success('Logo上传成功')
-  } else {
-    ElMessage.error(response.message || 'Logo上传失败')
-  }
-}
-
-const handleBrandLogoError = () => {
-  ElMessage.error('Logo上传失败')
 }
 
 const saveBrand = async () => {
@@ -779,26 +634,15 @@ const saveBrand = async () => {
   }
   saving.value = true
   try {
-    const token = localStorage.getItem('token')
-    const url = editingBrand.value.id ? `http://localhost:8082/brands/${editingBrand.value.id}` : 'http://localhost:8082/brands'
-    const method = editingBrand.value.id ? 'PUT' : 'POST'
-    
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
-      body: JSON.stringify(editingBrand.value)
-    })
-    
-    if (response.ok) {
-      ElMessage.success(editingBrand.value.id ? '品牌更新成功' : '品牌添加成功')
-      brandDialogVisible.value = false
-      loadBrands()
+    if (editingBrand.value.id) {
+      await brandApi.updateBrand(editingBrand.value)
+      ElMessage.success('品牌更新成功')
     } else {
-      ElMessage.error('操作失败')
+      await brandApi.createBrand(editingBrand.value)
+      ElMessage.success('品牌添加成功')
     }
+    brandDialogVisible.value = false
+    loadBrands()
   } catch (error) {
     console.error('保存品牌失败:', error)
     ElMessage.error('操作失败')
@@ -809,18 +653,9 @@ const saveBrand = async () => {
 
 const deleteBrandItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/brands/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('品牌删除成功')
-      loadBrands()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await brandApi.deleteBrand(id)
+    ElMessage.success('品牌删除成功')
+    loadBrands()
   } catch (error) {
     console.error('删除品牌失败:', error)
     ElMessage.error('删除失败')
@@ -829,58 +664,31 @@ const deleteBrandItem = async (id) => {
 
 const banUserItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/users/${id}/ban`, {
-      method: 'POST',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('禁言成功')
-      loadUsers()
-    } else {
-      ElMessage.error('操作失败')
-    }
+    await adminApi.banUser(id)
+    ElMessage.success('禁用成功')
+    loadUsers()
   } catch (error) {
-    console.error('禁言失败:', error)
+    console.error('禁用失败:', error)
     ElMessage.error('操作失败')
   }
 }
 
 const unbanUserItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/users/${id}/unban`, {
-      method: 'POST',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('解除禁言成功')
-      loadUsers()
-    } else {
-      ElMessage.error('操作失败')
-    }
+    await adminApi.unbanUser(id)
+    ElMessage.success('解禁成功')
+    loadUsers()
   } catch (error) {
-    console.error('解除禁言失败:', error)
+    console.error('解禁失败:', error)
     ElMessage.error('操作失败')
   }
 }
 
 const deleteUserItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/users/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('用户删除成功')
-      loadUsers()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await adminApi.deleteUser(id)
+    ElMessage.success('用户删除成功')
+    loadUsers()
   } catch (error) {
     console.error('删除用户失败:', error)
     ElMessage.error('删除失败')
@@ -889,18 +697,9 @@ const deleteUserItem = async (id) => {
 
 const approvePostItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/posts/${id}/approve`, {
-      method: 'POST',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('审核通过')
-      loadPosts()
-    } else {
-      ElMessage.error('操作失败')
-    }
+    await adminApi.approvePost(id)
+    ElMessage.success('审核通过')
+    loadPosts()
   } catch (error) {
     console.error('审核失败:', error)
     ElMessage.error('操作失败')
@@ -909,18 +708,9 @@ const approvePostItem = async (id) => {
 
 const rejectPostItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/posts/${id}/reject`, {
-      method: 'POST',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('审核拒绝')
-      loadPosts()
-    } else {
-      ElMessage.error('操作失败')
-    }
+    await adminApi.rejectPost(id)
+    ElMessage.success('审核拒绝')
+    loadPosts()
   } catch (error) {
     console.error('审核失败:', error)
     ElMessage.error('操作失败')
@@ -929,18 +719,9 @@ const rejectPostItem = async (id) => {
 
 const deletePostItem = async (id) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`http://localhost:8082/posts/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-    })
-    
-    if (response.ok) {
-      ElMessage.success('帖子删除成功')
-      loadPosts()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await adminApi.deletePost(id)
+    ElMessage.success('帖子删除成功')
+    loadPosts()
   } catch (error) {
     console.error('删除帖子失败:', error)
     ElMessage.error('删除失败')
@@ -948,10 +729,11 @@ const deletePostItem = async (id) => {
 }
 
 onMounted(() => {
-  loadCategories()
-  loadBrands()
   loadTopics()
   loadProducts()
+  loadCategories()
+  loadTopicCategories()
+  loadBrands()
   loadUsers()
   loadPosts()
 })
@@ -977,6 +759,7 @@ onMounted(() => {
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
 }
 
 .admin-nav-btn {
@@ -993,7 +776,6 @@ onMounted(() => {
 
 .admin-nav-btn:hover {
   background-color: #f0f8ff;
-  transform: translateY(-2px);
 }
 
 .admin-nav-btn.active {
@@ -1006,6 +788,7 @@ onMounted(() => {
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
 }
 
 .section-header {
@@ -1029,7 +812,27 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
-.product-image-uploader {
+/* 筛选区域 */
+.filter-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 分页区域 */
+.pagination-section {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 上传区域 */
+.avatar-uploader {
   width: 100px;
   height: 100px;
   border: 1px dashed #d9d9d9;
@@ -1040,11 +843,11 @@ onMounted(() => {
   justify-content: center;
 }
 
-.product-image-uploader:hover {
+.avatar-uploader:hover {
   border-color: #409eff;
 }
 
-.product-image-preview {
+.avatar-preview {
   width: 100px;
   height: 100px;
   object-fit: cover;
@@ -1054,5 +857,37 @@ onMounted(() => {
 .upload-icon {
   font-size: 28px;
   color: #8c939d;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .admin-nav {
+    flex-direction: column;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-section .el-input {
+    width: 100% !important;
+    margin-right: 0 !important;
+  }
+  
+  .filter-section .el-select {
+    width: 100% !important;
+    margin-right: 0 !important;
+  }
+  
+  .pagination-section {
+    justify-content: center;
+  }
 }
 </style>

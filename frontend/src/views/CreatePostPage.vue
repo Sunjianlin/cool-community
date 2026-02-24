@@ -10,6 +10,24 @@
           </el-select>
         </el-form-item>
         
+        <el-form-item label="帖子类型">
+          <el-radio-group v-model="postForm.type" @change="handlePostTypeChange">
+            <el-radio :label="1">话题贴</el-radio>
+            <el-radio :label="2">产品评测贴</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        
+        <!-- 产品评测贴专属字段 -->
+        <el-form-item v-if="postForm.type === 2" label="选择产品">
+          <el-select v-model="postForm.productId" placeholder="请选择产品" style="width: 100%">
+            <el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item v-if="postForm.type === 2" label="产品评分">
+          <el-rate v-model="postForm.rating" :max="5" />
+        </el-form-item>
+        
         <el-form-item label="帖子标题">
           <el-input v-model="postForm.title" placeholder="请输入帖子标题" maxlength="100" show-word-limit />
         </el-form-item>
@@ -60,6 +78,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../store/user';
 import topicApi from '../api/topicApi';
 import postApi from '../api/postApi';
+import productApi from '../api/productApi';
 import { ElMessage } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 
@@ -68,9 +87,13 @@ const route = useRoute();
 const userStore = useUserStore();
 
 const topics = ref([]);
+const products = ref([]);
 
 const postForm = ref({
   topicId: null,
+  productId: null,
+  type: 1,
+  rating: 5,
   title: '',
   content: '',
   images: ''
@@ -105,9 +128,28 @@ const toolbarOptions = [
 const loadTopics = async () => {
   try {
     const response = await topicApi.getTopicList({ page: 1, pageSize: 100 });
-    topics.value = response.data?.records || [];
+    topics.value = response.data.records || [];
+    console.log('加载话题成功:', topics.value);
   } catch (error) {
     console.error('加载话题失败:', error);
+    ElMessage.error('加载话题失败，请稍后重试');
+  }
+};
+
+const loadProducts = async () => {
+  try {
+    const response = await productApi.getProductList({ page: 1, pageSize: 100 });
+    products.value = response.data.records || [];
+    console.log('加载产品成功:', products.value);
+  } catch (error) {
+    console.error('加载产品失败:', error);
+    ElMessage.error('加载产品失败，请稍后重试');
+  }
+};
+
+const handlePostTypeChange = () => {
+  if (postForm.value.type === 2) {
+    loadProducts();
   }
 };
 
@@ -166,10 +208,25 @@ const submitPost = async () => {
     return;
   }
   
+  // 产品评测贴验证
+  if (postForm.value.type === 2) {
+    if (!postForm.value.productId) {
+      ElMessage.warning('请选择产品');
+      return;
+    }
+    if (!postForm.value.rating) {
+      ElMessage.warning('请为产品评分');
+      return;
+    }
+  }
+  
   submitting.value = true;
   try {
     const response = await postApi.createPost({
       topicId: postForm.value.topicId,
+      productId: postForm.value.productId,
+      type: postForm.value.type,
+      rating: postForm.value.rating,
       title: postForm.value.title,
       content: postForm.value.content,
       images: postForm.value.images

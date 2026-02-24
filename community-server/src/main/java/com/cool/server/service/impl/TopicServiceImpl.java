@@ -117,4 +117,12 @@ public class TopicServiceImpl implements TopicService {
         stringRedisTemplate.delete(key);
         topicMapper.decrementFollowCount(id);
     }
+
+    @Override
+    public void setHot(Long id, boolean isHot) {
+        Topic topic = new Topic();
+        topic.setId(id);
+        topic.setIsHot(isHot ? 1 : 0);
+        topicMapper.update(topic);
+    }
 }

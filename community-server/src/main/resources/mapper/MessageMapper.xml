@@ -2,16 +2,105 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cool.server.mapper.MessageMapper">
 
+    <insert id="insert" parameterType="com.cool.pojo.entity.Message" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO message (from_user_id, to_user_id, type, content, related_id, is_read)
+        VALUES (#{fromUserId}, #{toUserId}, #{type}, #{content}, #{relatedId}, 0)
+    </insert>
+
+    <select id="getById" resultType="com.cool.pojo.vo.MessageVO">
+        SELECT m.*, 
+               fu.username as from_username, fu.nickname as from_user_nickname, fu.avatar as from_user_avatar,
+               tu.username as to_username, tu.nickname as to_user_nickname, tu.avatar as to_user_avatar
+        FROM message m
+        LEFT JOIN user fu ON m.from_user_id = fu.id
+        LEFT JOIN user tu ON m.to_user_id = tu.id
+        WHERE m.id = #{id}
+    </select>
+
     <select id="list" resultType="com.cool.pojo.vo.MessageVO">
         SELECT m.*, 
-               fu.username as from_username, fu.avatar as from_user_avatar,
-               tu.username as to_username, tu.avatar as to_user_avatar
+               fu.username as from_username, fu.nickname as from_user_nickname, fu.avatar as from_user_avatar,
+               tu.username as to_username, tu.nickname as to_user_nickname, tu.avatar as to_user_avatar
         FROM message m
         LEFT JOIN user fu ON m.from_user_id = fu.id
         LEFT JOIN user tu ON m.to_user_id = tu.id
         WHERE m.to_user_id = #{userId} AND m.deleted = 0
         ORDER BY m.create_time DESC
         LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM message WHERE to_user_id = #{userId} AND deleted = 0
+    </select>
+
+    <update id="markAsRead">
+        UPDATE message SET is_read = 1 WHERE id = #{id}
+    </update>
+
+    <update id="markAllAsRead">
+        UPDATE message SET is_read = 1 WHERE to_user_id = #{userId} AND is_read = 0 AND deleted = 0
+    </update>
+
+    <update id="deleteById">
+        UPDATE message SET deleted = 1 WHERE id = #{id}
+    </update>
+
+    <select id="countUnread" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM message WHERE to_user_id = #{userId} AND is_read = 0 AND deleted = 0
+    </select>
+
+    <select id="getConversation" resultType="com.cool.pojo.vo.MessageVO">
+        SELECT m.*, 
+               fu.username as from_username, fu.nickname as from_user_nickname, fu.avatar as from_user_avatar,
+               tu.username as to_username, tu.nickname as to_user_nickname, tu.avatar as to_user_avatar
+        FROM message m
+        LEFT JOIN user fu ON m.from_user_id = fu.id
+        LEFT JOIN user tu ON m.to_user_id = tu.id
+        WHERE ((m.from_user_id = #{userId1} AND m.to_user_id = #{userId2}) 
+           OR (m.from_user_id = #{userId2} AND m.to_user_id = #{userId1}))
+           AND m.deleted = 0
+        ORDER BY m.create_time ASC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="countConversation" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM message 
+        WHERE ((from_user_id = #{userId1} AND to_user_id = #{userId2}) 
+           OR (from_user_id = #{userId2} AND to_user_id = #{userId1}))
+           AND deleted = 0
+    </select>
+
+    <select id="getConversationList" resultType="com.cool.pojo.vo.MessageVO">
+        SELECT 
+            m.*,
+            u.id as from_user_id,
+            u.username as from_username,
+            u.nickname as from_user_nickname,
+            u.avatar as from_user_avatar,
+            (SELECT content FROM message m2 
+             WHERE ((m2.from_user_id = m.from_user_id AND m2.to_user_id = m.to_user_id)
+                OR (m2.from_user_id = m.to_user_id AND m2.to_user_id = m.from_user_id))
+                AND m2.deleted = 0
+             ORDER BY m2.create_time DESC LIMIT 1) as last_content,
+            (SELECT create_time FROM message m2 
+             WHERE ((m2.from_user_id = m.from_user_id AND m2.to_user_id = m.to_user_id)
+                OR (m2.from_user_id = m.to_user_id AND m2.to_user_id = m.from_user_id))
+                AND m2.deleted = 0
+             ORDER BY m2.create_time DESC LIMIT 1) as last_time
+        FROM (
+            SELECT 
+                CASE WHEN from_user_id = #{userId} THEN to_user_id ELSE from_user_id END as from_user_id,
+                MAX(create_time) as create_time
+            FROM message
+            WHERE (from_user_id = #{userId} OR to_user_id = #{userId}) AND deleted = 0
+            GROUP BY CASE WHEN from_user_id = #{userId} THEN to_user_id ELSE from_user_id END
+        ) latest
+        JOIN message m ON m.create_time = latest.create_time 
+            AND ((m.from_user_id = #{userId} AND m.to_user_id = latest.from_user_id)
+                OR (m.to_user_id = #{userId} AND m.from_user_id = latest.from_user_id))
+        LEFT JOIN user u ON u.id = latest.from_user_id
+        WHERE m.deleted = 0
+        ORDER BY m.create_time DESC
     </select>
 
 </mapper>

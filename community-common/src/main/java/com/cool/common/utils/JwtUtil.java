@@ -40,11 +40,31 @@ public class JwtUtil {
 
     public static Long getUserId(String secretKey, String token) {
         Claims claims = parseToken(secretKey, token);
-        return claims.get("userId", Long.class);
+        Object userId = claims.get("userId");
+        if (userId instanceof Integer) {
+            return ((Integer) userId).longValue();
+        } else if (userId instanceof Long) {
+            return (Long) userId;
+        } else if (userId instanceof Number) {
+            return ((Number) userId).longValue();
+        }
+        return null;
     }
 
     public static String getUsername(String secretKey, String token) {
         Claims claims = parseToken(secretKey, token);
-        return claims.get("username", String.class);
+        Object username = claims.get("username");
+        return username != null ? username.toString() : null;
+    }
+
+    public static Integer getRole(String secretKey, String token) {
+        Claims claims = parseToken(secretKey, token);
+        Object role = claims.get("role");
+        if (role instanceof Integer) {
+            return (Integer) role;
+        } else if (role instanceof Number) {
+            return ((Number) role).intValue();
+        }
+        return null;
     }
 }

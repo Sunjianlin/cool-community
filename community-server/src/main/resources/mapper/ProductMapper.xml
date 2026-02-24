@@ -3,8 +3,11 @@
 <mapper namespace="com.cool.server.mapper.ProductMapper">
 
     <select id="count" resultType="java.lang.Long">
-        SELECT COUNT(*) FROM product WHERE deleted = 0
+        SELECT COUNT(*) FROM product
         <where>
+            <if test="true">
+                deleted = 0
+            </if>
             <if test="status != null">
                 AND status = #{status}
             </if>
@@ -22,31 +25,35 @@
 
     <select id="list" resultType="com.cool.pojo.vo.ProductVO">
         SELECT p.id, p.name, p.description, p.image, p.brand, p.category_id, p.price, p.specs, p.review_count,
-               pc.name as category_name,
-               (SELECT AVG(rating) FROM product_review WHERE product_id = p.id AND deleted = 0) as avg_rating
+               pc.name as categoryName,
+               (SELECT AVG(rating) FROM product_review WHERE product_id = p.id AND deleted = 0) as avgRating
         FROM product p
         LEFT JOIN product_category pc ON p.category_id = pc.id
-        WHERE p.deleted = 0
-        <if test="status != null">
-            AND p.status = #{status}
-        </if>
-        <if test="categoryId != null">
-            AND p.category_id = #{categoryId}
-        </if>
-        <if test="brand != null and brand != ''">
-            AND p.brand = #{brand}
-        </if>
-        <if test="keyword != null and keyword != ''">
-            AND (p.name LIKE CONCAT('%', #{keyword}, '%') OR p.brand LIKE CONCAT('%', #{keyword}, '%'))
-        </if>
+        <where>
+            <if test="true">
+                p.deleted = 0
+            </if>
+            <if test="status != null">
+                AND p.status = #{status}
+            </if>
+            <if test="categoryId != null">
+                AND p.category_id = #{categoryId}
+            </if>
+            <if test="brand != null and brand != ''">
+                AND p.brand = #{brand}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (p.name LIKE CONCAT('%', #{keyword}, '%') OR p.brand LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
         ORDER BY p.create_time DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
     <select id="getDetailById" resultType="com.cool.pojo.vo.ProductVO">
         SELECT p.id, p.name, p.description, p.image, p.brand, p.category_id, p.price, p.specs, p.review_count,
-               pc.name as category_name,
-               (SELECT AVG(rating) FROM product_review WHERE product_id = p.id AND deleted = 0) as avg_rating
+               pc.name as categoryName,
+               (SELECT AVG(rating) FROM product_review WHERE product_id = p.id AND deleted = 0) as avgRating
         FROM product p
         LEFT JOIN product_category pc ON p.category_id = pc.id
         WHERE p.id = #{id} AND p.deleted = 0

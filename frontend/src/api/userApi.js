@@ -9,6 +9,10 @@ const userApi = {
     return axios.post('/user/register', data)
   },
   
+  logout: () => {
+    return axios.post('/user/logout')
+  },
+  
   getUserInfo: () => {
     return axios.get('/user/info')
   },
@@ -35,6 +39,14 @@ const userApi = {
   
   unfollowUser: (id) => {
     return axios.delete(`/user/unfollow/${id}`)
+  },
+  
+  getFollowingList: (id, params) => {
+    return axios.get(`/user/following/${id}`, { params })
+  },
+  
+  getFollowerList: (id, params) => {
+    return axios.get(`/user/followers/${id}`, { params })
   },
   
   getUserList: (params) => {
