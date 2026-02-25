@@ -8,13 +8,19 @@
     <template v-else-if="post">
       <div class="post-card">
         <div class="post-header">
-          <div class="author-info">
-            <img :src="post.userAvatar || defaultAvatar" class="author-avatar" />
-            <div class="author-details">
-              <span class="author-name">{{ post.userNickname || post.username }}</span>
-              <span class="post-time">{{ formatDate(post.createTime) }}</span>
+          <router-link 
+            :to="post.userId === userStore.user?.id ? `/user/${userStore.user?.id}` : (post.userId ? `/user/${post.userId}` : '#')"
+            class="author-link"
+            :disabled="!post.userId"
+          >
+            <div class="author-info">
+              <img :src="post.userAvatar || defaultAvatar" class="author-avatar" />
+              <div class="author-details">
+                <span class="author-name">{{ post.userNickname || post.username }}</span>
+                <span class="post-time">{{ formatDate(post.createTime) }}</span>
+              </div>
             </div>
-          </div>
+          </router-link>
           <div class="post-meta">
             <span class="topic-tag" v-if="post.topicName">
               <router-link :to="`/topic/${post.topicId}`">{{ post.topicName }}</router-link>
@@ -87,16 +93,60 @@
         
         <div class="comments-list" v-if="comments.length > 0">
           <div class="comment-item" v-for="comment in comments" :key="comment.id">
-            <img :src="comment.userAvatar || defaultAvatar" class="user-avatar" />
+            <router-link 
+              :to="comment.userId === userStore.user?.id ? `/user/${userStore.user?.id}` : (comment.userId ? `/user/${comment.userId}` : '#')"
+              class="comment-user-link"
+              :disabled="!comment.userId"
+            >
+              <img :src="comment.userAvatar || defaultAvatar" class="user-avatar" />
+            </router-link>
             <div class="comment-body">
               <div class="comment-header">
-                <span class="comment-author">{{ comment.userNickname || comment.username }}</span>
+                <router-link 
+                  :to="comment.userId === userStore.user?.id ? `/user/${userStore.user?.id}` : (comment.userId ? `/user/${comment.userId}` : '#')"
+                  class="comment-author-link"
+                  :disabled="!comment.userId"
+                >
+                  <span class="comment-author">{{ comment.userNickname || comment.username }}</span>
+                </router-link>
                 <span class="comment-time">{{ formatDate(comment.createTime) }}</span>
               </div>
               <p class="comment-text">{{ comment.content }}</p>
               <div class="comment-actions">
-                <button class="comment-action-btn">👍 {{ comment.likeCount || 0 }}</button>
-                <button class="comment-action-btn">回复</button>
+                <button class="comment-action-btn" @click="toggleCommentLike(comment)">👍 {{ comment.likeCount || 0 }}</button>
+                <button class="comment-action-btn" @click="replyToComment(comment)">回复</button>
+              </div>
+              <!-- 回复输入框 -->
+              <div v-if="replyingTo === comment.id" class="comment-reply-input">
+                <input 
+                  type="text" 
+                  v-model="replyContent" 
+                  placeholder="输入回复内容..."
+                  @keyup.enter="submitReply(comment)"
+                />
+                <div class="reply-buttons">
+                  <button class="btn btn-sm btn-outline" @click="cancelReply">取消</button>
+                  <button class="btn btn-sm btn-primary" @click="submitReply(comment)">回复</button>
+                </div>
+              </div>
+              <!-- 回复列表 -->
+              <div v-if="comment.replies && comment.replies.length > 0" class="comment-replies">
+                <div 
+                  v-for="reply in comment.replies" 
+                  :key="reply.id" 
+                  class="comment-reply-item"
+                >
+                  <router-link 
+                    :to="reply.userId === userStore.user?.id ? `/user/${userStore.user?.id}` : (reply.userId ? `/user/${reply.userId}` : '#')"
+                    class="reply-user-link"
+                    :disabled="!reply.userId"
+                  >
+                    <span class="reply-author">{{ reply.userNickname || reply.username }}</span>
+                  </router-link>
+                  <span class="reply-text">{{ reply.content }}</span>
+                  <span class="reply-time">{{ formatDate(reply.createTime) }}</span>
+                  <button class="reply-action-btn" @click="replyToComment(reply)">回复</button>
+                </div>
               </div>
             </div>
           </div>
@@ -142,6 +192,8 @@ const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726
 
 const imagePreviewVisible = ref(false)
 const previewImageUrl = ref('')
+const replyingTo = ref(null)
+const replyContent = ref('')
 
 const postImages = computed(() => {
   if (!post.value?.images) return []
@@ -253,6 +305,67 @@ const sharePost = () => {
   })
 }
 
+// 点赞评论
+const toggleCommentLike = async (comment) => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  try {
+    // 实际项目中应该调用API点赞评论
+    comment.likeCount = (comment.likeCount || 0) + 1
+    ElMessage.success('点赞成功')
+  } catch (error) {
+    console.error('点赞评论失败:', error)
+    ElMessage.error('点赞失败')
+  }
+}
+
+// 回复评论
+const replyToComment = (comment) => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  replyingTo.value = comment.id
+  replyContent.value = ''
+}
+
+// 提交回复
+const submitReply = async (comment) => {
+  if (!replyContent.value.trim()) {
+    ElMessage.warning('请输入回复内容')
+    return
+  }
+  
+  try {
+    // 实际项目中应该调用API提交回复
+    if (!comment.replies) {
+      comment.replies = []
+    }
+    comment.replies.push({
+      id: Date.now(),
+      userId: userStore.user?.id,
+      userNickname: userStore.user?.nickname,
+      content: replyContent.value.trim(),
+      createTime: new Date().toISOString(),
+      likeCount: 0
+    })
+    replyingTo.value = null
+    replyContent.value = ''
+    ElMessage.success('回复成功')
+  } catch (error) {
+    console.error('提交回复失败:', error)
+    ElMessage.error('回复失败')
+  }
+}
+
+// 取消回复
+const cancelReply = () => {
+  replyingTo.value = null
+  replyContent.value = ''
+}
+
 const submitComment = async () => {
   if (!newComment.value.trim()) {
     ElMessage.warning('请输入评论内容')
@@ -305,6 +418,16 @@ watch(() => route.params.id, () => {
 <style scoped>
 .post-detail-page {
   width: 100%;
+}
+
+.author-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+}
+
+.author-link:hover .author-name {
+  color: #3498db;
 }
 
 .loading {
@@ -602,6 +725,126 @@ watch(() => route.params.id, () => {
 }
 
 .comment-action-btn:hover {
+  color: #3498db;
+}
+
+/* 评论用户链接样式 */
+.comment-user-link {
+  text-decoration: none;
+}
+
+.comment-author-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.comment-author-link:hover .comment-author {
+  color: #3498db;
+}
+
+/* 回复输入框样式 */
+.comment-reply-input {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.comment-reply-input input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.comment-reply-input input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.reply-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #3498db;
+  color: #3498db;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-outline:hover {
+  background: #3498db;
+  color: white;
+}
+
+.btn-primary {
+  background: #3498db;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  background: #2980b9;
+}
+
+/* 回复列表样式 */
+.comment-replies {
+  margin-top: 12px;
+  padding-left: 20px;
+  border-left: 2px solid #f0f0f0;
+}
+
+.comment-reply-item {
+  padding: 8px 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reply-user-link {
+  text-decoration: none;
+  color: #3498db;
+  font-weight: 500;
+}
+
+.reply-text {
+  color: #333;
+  flex: 1;
+}
+
+.reply-time {
+  color: #999;
+  font-size: 11px;
+}
+
+.reply-action-btn {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: #999;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.reply-action-btn:hover {
+  background: #f0f0f0;
   color: #3498db;
 }
 

@@ -19,42 +19,48 @@ import AdminPage from './views/AdminPage.vue'
 import ProfilePage from './views/ProfilePage.vue'
 import CreatePostPage from './views/CreatePostPage.vue'
 import UserDetailPage from './views/UserDetailPage.vue'
+import ChatPage from './views/ChatPage.vue'
 import './style.css'
 
 const routes = [
-  { path: '/', component: HomePage },
-  { path: '/topics', component: TopicsPage },
-  { path: '/topic/:id', component: TopicDetailPage },
-  { path: '/post/:id', component: PostDetailPage },
-  { path: '/products', component: ProductsPage },
-  { path: '/product/:id', component: ProductDetailPage },
+  { path: '/', component: HomePage, meta: { requiresAuth: true } },
+  { path: '/topics', component: TopicsPage, meta: { requiresAuth: true } },
+  { path: '/topic/:id', component: TopicDetailPage, meta: { requiresAuth: true } },
+  { path: '/post/:id', component: PostDetailPage, meta: { requiresAuth: true } },
+  { path: '/products', component: ProductsPage, meta: { requiresAuth: true } },
+  { path: '/product/:id', component: ProductDetailPage, meta: { requiresAuth: true } },
   { path: '/login', component: LoginPage },
   { path: '/register', component: RegisterPage },
   { path: '/admin', component: AdminPage, meta: { requiresAuth: true, requiresAdmin: true } },
-  { path: '/profile', component: ProfilePage, meta: { requiresAuth: true } },
-  { path: '/user/:id', component: UserDetailPage },
-  { path: '/create-post', component: CreatePostPage, meta: { requiresAuth: true } }
+  { path: '/user/:id', component: UserDetailPage, meta: { requiresAuth: true } },
+  { path: '/create-post', component: CreatePostPage, meta: { requiresAuth: true } },
+  { path: '/chat', component: ChatPage, meta: { requiresAuth: true } }
 ]
 
+// 先初始化用户状态，再处理路由守卫
+import { useUserStore } from './store/user'
+
+// 创建路由实例
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-router.beforeEach((to, from, next) => {
-  const userStr = localStorage.getItem('user')
-  const token = localStorage.getItem('token')
-  const isLoggedIn = !!(userStr && token)
+// 路由守卫
+router.beforeEach(async (to, from, next) => {
+  const userStore = useUserStore()
+  
+  // 确保用户状态已初始化
+  if (!userStore.isInitialized) {
+    await userStore.initAuth()
+  }
+  
+  const isLoggedIn = userStore.isLoggedIn
   
   if (to.meta.requiresAuth && !isLoggedIn) {
     next('/login')
   } else if (to.meta.requiresAdmin) {
-    let user = null
-    try {
-      user = JSON.parse(userStr)
-    } catch (e) {}
-    
-    if (!user || user.role < 1) {
+    if (!userStore.isAdmin) {
       next('/')
     } else {
       next()

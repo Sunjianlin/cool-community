@@ -62,11 +62,17 @@
             class="post-card"
           >
             <div class="post-header">
-              <img :src="post.userAvatar || defaultAvatar" class="user-avatar" />
-              <div class="user-info">
-                <span class="username">{{ post.userNickname || post.username }}</span>
-                <span class="post-time">{{ formatDate(post.createTime) }}</span>
-              </div>
+              <router-link 
+                :to="post.userId === userStore.user?.id ? `/user/${userStore.user?.id}` : (post.userId ? `/user/${post.userId}` : '#')"
+                class="user-link"
+                :disabled="!post.userId"
+              >
+                <img :src="post.userAvatar || defaultAvatar" class="user-avatar" />
+                <div class="user-info">
+                  <span class="username">{{ post.userNickname || post.username }}</span>
+                  <span class="post-time">{{ formatDate(post.createTime) }}</span>
+                </div>
+              </router-link>
               <span v-if="post.topicName" class="topic-tag">{{ post.topicName }}</span>
             </div>
             <h4 class="post-title">{{ post.title }}</h4>
@@ -85,6 +91,8 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../store/user'
 import topicApi from '../api/topicApi'
 import postApi from '../api/postApi'
 import productApi from '../api/productApi'
@@ -95,6 +103,7 @@ const hotPosts = ref([])
 const currentIndex = ref(0)
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 const defaultProductImage = 'https://cube.elemecdn.com/e/fd/0/yz33e8pE6VUm0fHQyUb7Z5Th4i4.png'
+const userStore = useUserStore()
 
 const backgrounds = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -196,14 +205,33 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.user-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+  transition: var(--transition);
+}
+
+.user-link:hover {
+  transform: translateX(4px);
+}
+
+.user-link:hover .username {
+  color: var(--primary-color);
+}
+
+/* 轮播图设计 */
 .carousel {
   position: relative;
   width: 100%;
-  height: 320px;
-  border-radius: 12px;
+  height: 400px;
+  border-radius: var(--border-radius);
   overflow: hidden;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 32px;
+  box-shadow: var(--shadow-lg);
+  background: var(--background-gradient);
 }
 
 .carousel-container {
@@ -222,133 +250,231 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 60px;
+  padding: 0 80px;
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+  background-size: cover;
+  background-position: center;
+}
+
+.carousel-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 100%);
   z-index: 1;
 }
 
 .carousel-item.active {
   opacity: 1;
   z-index: 2;
+  transform: scale(1.05);
 }
 
 .carousel-content {
   text-align: center;
-  max-width: 700px;
+  max-width: 800px;
+  z-index: 2;
+  position: relative;
+  animation: fadeInUp 1s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .carousel-content h3 {
-  font-size: 28px;
-  margin-bottom: 16px;
+  font-size: 36px;
+  margin-bottom: 20px;
   font-weight: 700;
+  font-family: var(--font-display);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .carousel-content p {
-  font-size: 16px;
-  margin-bottom: 24px;
-  opacity: 0.9;
+  font-size: 18px;
+  margin-bottom: 32px;
+  opacity: 0.95;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .carousel-content .btn {
-  padding: 10px 28px;
-  font-size: 15px;
-  background-color: white;
-  color: #333;
+  padding: 12px 32px;
+  font-size: 16px;
+  background: white;
+  color: var(--primary-color);
+  font-weight: 600;
+  border-radius: 30px;
+  transition: var(--transition);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.carousel-content .btn:hover {
+  background: var(--primary-color);
+  color: white;
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 8px 24px rgba(52, 152, 219, 0.4);
 }
 
 .carousel-indicators {
   position: absolute;
-  bottom: 20px;
+  bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
+  gap: 12px;
   z-index: 3;
 }
 
 .indicator {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
 }
 
 .indicator:hover,
 .indicator.active {
   background-color: white;
-  transform: scale(1.2);
+  transform: scale(1.3);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3);
 }
 
+/* 主内容区设计 */
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .section {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--card-gradient);
+  border-radius: var(--border-radius);
+  padding: 32px;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.section:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
 }
 
 .section-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #3498db;
-  color: #333;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid var(--primary-color);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  position: relative;
 }
 
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 80px;
+  height: 3px;
+  background: var(--secondary-color);
+}
+
+/* 产品网格设计 */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 24px;
 }
 
 .product-card {
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--background-white);
+  border-radius: var(--border-radius);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   color: inherit;
   display: block;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.product-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(52, 152, 219, 0.1), transparent);
+  transform: rotate(45deg);
+  transition: all 0.6s ease;
+  opacity: 0;
+}
+
+.product-card:hover::before {
+  top: -30%;
+  left: -30%;
+  opacity: 1;
 }
 
 .product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
 }
 
 .product-image {
   width: 100%;
-  height: 140px;
+  height: 200px;
   object-fit: cover;
+  transition: all 0.4s ease;
+}
+
+.product-card:hover .product-image {
+  transform: scale(1.1);
 }
 
 .product-info {
-  padding: 12px;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .product-name {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-primary);
 }
 
 .product-brand {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
 }
 
 .product-meta {
@@ -358,49 +484,83 @@ onUnmounted(() => {
 }
 
 .product-price {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e74c3c;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-color);
+  font-family: var(--font-display);
 }
 
 .product-rating {
-  font-size: 12px;
-  color: #f39c12;
+  font-size: 14px;
+  color: var(--warning-color);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
+/* 帖子列表设计 */
 .post-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .post-card {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 16px;
+  background: var(--background-white);
+  border-radius: var(--border-radius);
+  padding: 24px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   color: inherit;
   display: block;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.post-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 0;
+  background: var(--primary-color);
+  transition: height 0.4s ease;
+}
+
+.post-card:hover::before {
+  height: 100%;
 }
 
 .post-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-color);
 }
 
 .post-header {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  gap: 16px;
 }
 
 .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  margin-right: 10px;
+  object-fit: cover;
+  border: 3px solid rgba(52, 152, 219, 0.1);
+  transition: var(--transition);
+}
+
+.post-card:hover .user-avatar {
+  border-color: var(--primary-color);
+  transform: scale(1.1);
 }
 
 .user-info {
@@ -408,64 +568,138 @@ onUnmounted(() => {
 }
 
 .username {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: var(--transition);
 }
 
 .post-time {
   display: block;
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 4px;
 }
 
 .topic-tag {
-  padding: 4px 12px;
-  background: #e8f4fc;
-  color: #3498db;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 6px 16px;
+  background: rgba(52, 152, 219, 0.1);
+  color: var(--primary-color);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.post-card:hover .topic-tag {
+  background: var(--primary-color);
+  color: white;
+  transform: scale(1.05);
 }
 
 .post-title {
-  font-size: 16px;
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: #333;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  transition: var(--transition);
+}
+
+.post-card:hover .post-title {
+  color: var(--primary-color);
+  transform: translateX(8px);
 }
 
 .post-content {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.5;
-  margin-bottom: 12px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  transition: var(--transition);
+}
+
+.post-card:hover .post-content {
+  color: var(--text-primary);
 }
 
 .post-stats {
   display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: #999;
+  gap: 24px;
+  font-size: 14px;
+  color: var(--text-light);
+  font-weight: 500;
+  transition: var(--transition);
 }
 
-@media (max-width: 992px) {
+.post-stats span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+}
+
+.post-card:hover .post-stats span {
+  color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
   .product-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
   }
   
   .carousel {
-    height: 260px;
+    height: 320px;
   }
   
   .carousel-content h3 {
-    font-size: 22px;
+    font-size: 28px;
+  }
+  
+  .carousel-content p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .product-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .carousel {
+    height: 280px;
+  }
+  
+  .carousel-content h3 {
+    font-size: 24px;
+  }
+  
+  .carousel-content p {
+    font-size: 14px;
+  }
+  
+  .section {
+    padding: 24px;
+  }
+  
+  .section-title {
+    font-size: 20px;
+  }
+  
+  .post-card {
+    padding: 20px;
+  }
+  
+  .post-title {
+    font-size: 18px;
   }
 }
 </style>

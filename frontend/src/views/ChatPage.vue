@@ -1,469 +1,553 @@
 <template>
   <div class="chat-page">
+    <h2 class="page-title">私信</h2>
+    
     <div class="chat-container">
-      <div class="conversations-list">
-        <div class="conversations-header">
-          <h3>私信</h3>
-          <span class="unread-count" v-if="unreadCount > 0">{{ unreadCount }}</span>
+      <!-- 聊天列表 -->
+      <div class="chat-list">
+        <h3 class="section-title">最近聊天</h3>
+        <div v-if="chatStore.loading.chatList" class="loading-message">
+          加载中...
         </div>
-        <div class="conversation-items" v-if="conversations.length > 0">
-          <div 
-            class="conversation-item" 
-            v-for="conv in conversations" 
-            :key="conv.fromUserId"
-            :class="{ active: selectedUserId === conv.fromUserId }"
-            @click="selectConversation(conv)"
-          >
-            <div class="conv-avatar">
-              <img :src="conv.fromUserAvatar || defaultAvatar" alt="头像" />
-            </div>
-            <div class="conv-info">
-              <div class="conv-name">{{ conv.fromUserNickname || conv.fromUsername }}</div>
-              <div class="conv-last-message">{{ conv.content }}</div>
-            </div>
-            <div class="conv-time">{{ formatTime(conv.createTime) }}</div>
+        <div v-else-if="chatStore.chatList.length === 0" class="empty-message">
+          还没有私信记录
+        </div>
+        <div v-else class="chat-item" v-for="chat in chatStore.chatList" :key="chat.id" @click="selectChat(chat)">
+          <div class="chat-avatar">
+            <img :src="chat.avatar" alt="用户头像" />
           </div>
-        </div>
-        <div class="empty-conversations" v-else>
-          <p>暂无私信</p>
+          <div class="chat-info">
+            <div class="chat-header">
+              <div class="chat-name-container">
+                <span class="chat-name">{{ chat.name }}</span>
+                <OnlineStatus :status="userOnlineStatus[chat.userId] || 0" />
+              </div>
+              <span class="chat-time">{{ formatDate(chat.lastMessageTime) }}</span>
+            </div>
+            <div class="chat-preview">
+              <span v-if="chat.unreadCount > 0" class="unread-badge">{{ chat.unreadCount }}</span>
+              <span class="message-preview">{{ chat.lastMessage }}</span>
+            </div>
+          </div>
         </div>
       </div>
       
-      <div class="chat-area" v-if="selectedUser">
+      <!-- 聊天界面 -->
+      <div v-if="chatStore.selectedChat" class="chat-content">
         <div class="chat-header">
-          <div class="user-info">
-            <img :src="selectedUser.avatar || defaultAvatar" class="user-avatar" />
-            <div class="user-details">
-              <span class="user-name">{{ selectedUser.nickname || selectedUser.username }}</span>
-              <router-link :to="`/user/${selectedUser.id}`" class="view-profile">查看资料</router-link>
+          <div class="chat-user-info">
+            <img :src="chatStore.selectedChat.avatar" alt="用户头像" class="user-avatar" />
+            <div class="user-name-container">
+              <span class="user-name">{{ chatStore.selectedChat.name }}</span>
+              <OnlineStatus :status="userOnlineStatus[chatStore.selectedChat.userId] || 0" />
             </div>
+            <button v-if="!isFollowing" class="follow-btn" @click="followUser(chatStore.selectedChat.userId)">关注</button>
           </div>
         </div>
-        
-        <div class="messages-container" ref="messagesContainer">
-          <div class="message-item" 
-               v-for="msg in messages" 
-               :key="msg.id" 
-               :class="{ sent: msg.fromUserId === currentUserId }">
+        <div class="message-list" ref="messageList">
+          <div v-if="chatStore.loading.messages" class="loading-messages">
+            加载消息中...
+          </div>
+          <div v-else v-for="message in chatStore.getMessagesBySessionId(chatStore.selectedChat.id)" :key="message.id" :class="['message-item', message.isMine ? 'message-mine' : 'message-other']">
             <div class="message-content">
-              <p>{{ msg.content }}</p>
-              <span class="message-time">{{ formatTime(msg.createTime) }}</span>
+              <span class="message-text">{{ message.content }}</span>
+              <span class="message-time">{{ formatTime(message.createTime) }}</span>
             </div>
           </div>
         </div>
-        
-        <div class="message-input-container">
-          <input 
-            type="text" 
-            class="input message-input" 
-            placeholder="输入消息..." 
-            v-model="newMessage" 
-            @keyup.enter="sendMessage" 
-          />
-          <button class="btn btn-primary" @click="sendMessage" :disabled="!newMessage.trim()">发送</button>
+        <div class="message-input-area">
+          <input type="text" v-model="messageInput" placeholder="输入消息..." @keyup.enter="sendMessage" />
+          <button class="send-btn" @click="sendMessage" :disabled="chatStore.loading.sending">发送</button>
         </div>
       </div>
-      
-      <div class="no-selection" v-else>
-        <p>选择一个会话开始聊天</p>
+      <div v-else class="chat-placeholder">
+        <p>选择一个聊天开始对话</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../store/user'
-import messageApi from '../api/messageApi'
+import { useChatStore } from '../store/chat'
 import { ElMessage } from 'element-plus'
+import OnlineStatus from '../components/OnlineStatus.vue'
+import axios from '../api/axios'
 
+const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
-const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+const chatStore = useChatStore()
+const messageInput = ref('')
+const isFollowing = ref(false)
+const messageList = ref(null)
+// 用户在线状态映射
+const userOnlineStatus = ref({})
 
-const conversations = ref([])
-const selectedUserId = ref(null)
-const selectedUser = ref(null)
-const messages = ref([])
-const newMessage = ref('')
-const unreadCount = ref(0)
-const messagesContainer = ref(null)
-const currentUserId = ref(userStore.user?.id)
+// 初始化WebSocket连接
+const initWebSocket = () => {
+  if (!userStore.user?.id) return
+  chatStore.initWebSocket(userStore.user.id)
+}
 
-const formatTime = (dateStr) => {
+// 获取用户在线状态
+const getUserOnlineStatus = async (userId) => {
+  try {
+    const response = await axios.get(`/online-status/${userId}`)
+    if (response.code === 200) {
+      userOnlineStatus.value[userId] = response.data.status
+    }
+  } catch (error) {
+    console.error('获取用户在线状态失败:', error)
+  }
+}
+
+// 批量获取用户在线状态
+const batchGetUserOnlineStatus = async () => {
+  for (const chat of chatStore.chatList) {
+    await getUserOnlineStatus(chat.userId)
+  }
+}
+
+// 选择聊天
+const selectChat = async (chat) => {
+  chatStore.selectChat(chat)
+  isFollowing.value = chat.isFollowing
+  chatStore.loadMessages(chat.id)
+  // 获取该用户的在线状态
+  await getUserOnlineStatus(chat.userId)
+}
+
+// 发送消息
+const sendMessage = async () => {
+  if (!messageInput.value.trim() || !chatStore.selectedChat) return
+  
+  const content = messageInput.value.trim()
+  await chatStore.sendMessage(content)
+  messageInput.value = ''
+  
+  // 滚动到底部
+  nextTick(() => {
+    scrollToBottom()
+  })
+}
+
+// 滚动到底部
+const scrollToBottom = () => {
+  if (messageList.value) {
+    messageList.value.scrollTop = messageList.value.scrollHeight
+  }
+}
+
+// 关注用户
+const followUser = async (userId) => {
+  if (!userStore.user?.id) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  try {
+    // 实际项目中应该调用API关注用户
+    // const response = await userApi.followUser(userId)
+    isFollowing.value = true
+    ElMessage.success('关注成功')
+  } catch (error) {
+    console.error('关注用户失败:', error)
+    ElMessage.error('关注失败')
+  }
+}
+
+// 格式化日期
+const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const now = new Date()
   const diff = now - date
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString('zh-CN')
+  if (days === 0) {
+    return dateStr.slice(11, 16)
+  } else if (days === 1) {
+    return '昨天'
+  } else if (days < 7) {
+    return `${days}天前`
+  } else {
+    return dateStr.slice(0, 10)
+  }
 }
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+// 格式化时间
+const formatTime = (timeStr) => {
+  if (!timeStr) return ''
+  return timeStr.slice(11, 16)
+}
+
+// 检查URL参数，是否需要直接进入特定聊天
+const checkUrlParams = async () => {
+  const userId = route.query.userId
+  if (userId) {
+    try {
+      // 这里可以在chat store中添加getOrCreateSession方法
+      // 暂时使用原有逻辑
+      const messageApi = await import('../api/messageApi')
+      const response = await messageApi.default.getOrCreateSession(parseInt(userId))
+      if (response.code === 200 && response.data) {
+        chatStore.selectChat(response.data)
+        isFollowing.value = response.data.isFollowing
+        await chatStore.loadMessages(response.data.id)
+      }
+    } catch (error) {
+      console.error('创建会话失败:', error)
+      ElMessage.error('打开聊天失败')
     }
-  })
-}
-
-const loadConversations = async () => {
-  try {
-    const response = await messageApi.getConversationList()
-    conversations.value = response.data || []
-  } catch (error) {
-    console.error('加载会话列表失败:', error)
-  }
-}
-
-const loadUnreadCount = async () => {
-  try {
-    const response = await messageApi.getUnreadCount()
-    unreadCount.value = response.data || 0
-  } catch (error) {
-    console.error('加载未读数量失败:', error)
-  }
-}
-
-const loadMessages = async (toUserId) => {
-  try {
-    const response = await messageApi.getConversation(toUserId, { page: 1, pageSize: 100 })
-    messages.value = response.data?.records || []
-    scrollToBottom()
-  } catch (error) {
-    console.error('加载消息失败:', error)
-    messages.value = []
-  }
-}
-
-const selectConversation = async (conv) => {
-  selectedUserId.value = conv.fromUserId
-  selectedUser.value = {
-    id: conv.fromUserId,
-    username: conv.fromUsername,
-    nickname: conv.fromUserNickname,
-    avatar: conv.fromUserAvatar
-  }
-  
-  await loadMessages(conv.fromUserId)
-  
-  try {
-    await messageApi.markConversationAsRead(conv.fromUserId)
-    await loadUnreadCount()
-  } catch (error) {
-    console.error('标记已读失败:', error)
-  }
-}
-
-const sendMessage = async () => {
-  if (!newMessage.value.trim() || !selectedUserId.value) return
-  
-  const content = newMessage.value.trim()
-  
-  try {
-    await messageApi.sendMessage({
-      toUserId: selectedUserId.value,
-      content: content
-    })
-    
-    messages.value.push({
-      id: Date.now(),
-      fromUserId: currentUserId.value,
-      toUserId: selectedUserId.value,
-      content: content,
-      createTime: new Date().toISOString()
-    })
-    
-    newMessage.value = ''
-    scrollToBottom()
-    
-    await loadConversations()
-  } catch (error) {
-    console.error('发送消息失败:', error)
-    ElMessage.error('发送失败')
   }
 }
 
 onMounted(async () => {
-  if (!userStore.isLoggedIn) {
-    return
+  // 确保用户状态已初始化
+  if (!userStore.isInitialized) {
+    await userStore.initAuth()
   }
   
-  currentUserId.value = userStore.user?.id
-  await Promise.all([loadConversations(), loadUnreadCount()])
+  if (userStore.isLoggedIn) {
+    await chatStore.initChatState()
+    initWebSocket()
+    await checkUrlParams()
+    // 批量获取用户在线状态
+    await batchGetUserOnlineStatus()
+  } else {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+  }
+})
+
+onUnmounted(() => {
+  chatStore.closeWebSocket()
 })
 </script>
 
 <style scoped>
 .chat-page {
   width: 100%;
-  height: calc(100vh - 200px);
-  min-height: 500px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.page-title {
+  font-size: 24px;
+  margin-bottom: 30px;
+  color: #333;
+  text-align: center;
 }
 
 .chat-container {
   display: flex;
-  width: 100%;
-  height: 100%;
+  gap: 24px;
+  min-height: 600px;
+}
+
+/* 聊天列表 */
+.chat-list {
+  flex: 1;
+  max-width: 350px;
   background-color: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.conversations-list {
-  width: 320px;
-  border-right: 1px solid #e5e5e5;
-  display: flex;
-  flex-direction: column;
-}
-
-.conversations-header {
-  padding: 20px;
-  border-bottom: 1px solid #e5e5e5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.conversations-header h3 {
-  margin: 0;
+.section-title {
   font-size: 18px;
+  margin-bottom: 20px;
   color: #333;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 8px;
 }
 
-.unread-count {
-  background: #ff6b6b;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
+.loading-message {
+  text-align: center;
+  color: #999;
+  padding: 40px 0;
+  font-size: 16px;
 }
 
-.conversation-items {
-  flex: 1;
-  overflow-y: auto;
+.empty-message {
+  text-align: center;
+  color: #999;
+  padding: 40px 0;
+  font-size: 16px;
 }
 
-.conversation-item {
+.chat-item {
   display: flex;
   align-items: center;
+  gap: 12px;
   padding: 16px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
-  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+  margin-bottom: 8px;
 }
 
-.conversation-item:hover {
-  background-color: #f5f5f5;
+.chat-item:hover {
+  background-color: #f8f9fa;
 }
 
-.conversation-item.active {
-  background-color: #e8f4fc;
-}
-
-.conv-avatar img {
+.chat-avatar img {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   object-fit: cover;
-  margin-right: 12px;
 }
 
-.conv-info {
+.chat-info {
   flex: 1;
   min-width: 0;
-}
-
-.conv-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.conv-last-message {
-  font-size: 13px;
-  color: #999;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.conv-time {
-  font-size: 12px;
-  color: #ccc;
-  margin-left: 8px;
-}
-
-.empty-conversations {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #999;
-}
-
-.chat-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e5e5e5;
-  background-color: #fafafa;
+  margin-bottom: 4px;
 }
 
-.user-info {
+.chat-name-container {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.user-name-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-name {
+  font-weight: 500;
+  color: #333;
+  font-size: 16px;
+}
+
+.chat-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.chat-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unread-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-preview {
+  font-size: 14px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* 聊天内容 */
+.chat-content {
+  flex: 2;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-content .chat-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8f9fa;
+  border-radius: 12px 12px 0 0;
+}
+
+.chat-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .user-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  margin-right: 12px;
+  object-fit: cover;
 }
 
 .user-name {
-  font-size: 16px;
   font-weight: 500;
   color: #333;
+  font-size: 16px;
 }
 
-.view-profile {
-  font-size: 12px;
-  color: #3498db;
-  margin-top: 4px;
-  display: block;
-  text-decoration: none;
+.follow-btn {
+  padding: 6px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.messages-container {
+.follow-btn:hover {
+  background-color: #2980b9;
+}
+
+.message-list {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
-  background-color: #f9f9f9;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading-messages {
+  text-align: center;
+  color: #999;
+  padding: 20px;
 }
 
 .message-item {
-  margin-bottom: 16px;
   display: flex;
   max-width: 70%;
 }
 
-.message-item.sent {
-  justify-content: flex-end;
+.message-mine {
+  align-self: flex-end;
+  flex-direction: row-reverse;
 }
 
 .message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.message-mine .message-content {
+  align-items: flex-end;
+}
+
+.message-text {
   padding: 12px 16px;
   border-radius: 18px;
-  position: relative;
+  line-height: 1.4;
 }
 
-.message-item:not(.sent) .message-content {
-  background-color: #fff;
-  border-bottom-left-radius: 4px;
-}
-
-.message-item.sent .message-content {
+.message-mine .message-text {
   background-color: #3498db;
   color: white;
   border-bottom-right-radius: 4px;
 }
 
-.message-content p {
-  margin: 0 0 4px 0;
-  line-height: 1.4;
-  word-break: break-word;
+.message-other .message-text {
+  background-color: #f1f1f1;
+  color: #333;
+  border-bottom-left-radius: 4px;
 }
 
 .message-time {
-  font-size: 11px;
-  opacity: 0.7;
+  font-size: 12px;
+  color: #999;
 }
 
-.message-input-container {
+.message-input-area {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
   display: flex;
   gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid #e5e5e5;
-  background-color: #fff;
+  background-color: #f8f9fa;
+  border-radius: 0 0 12px 12px;
 }
 
-.message-input {
+.message-input-area input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #e0e0e0;
   border-radius: 24px;
   font-size: 14px;
+  background-color: white;
   outline: none;
+  transition: all 0.3s ease;
 }
 
-.message-input:focus {
+.message-input-area input:focus {
   border-color: #3498db;
 }
 
-.btn {
-  padding: 10px 24px;
+.send-btn {
+  padding: 12px 24px;
+  background-color: #3498db;
+  color: white;
   border: none;
   border-radius: 24px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
-.btn-primary {
-  background: #3498db;
-  color: white;
+.send-btn:hover:not(:disabled) {
+  background-color: #2980b9;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #2980b9;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
+.send-btn:disabled {
+  background-color: #bdc3c7;
   cursor: not-allowed;
 }
 
-.no-selection {
-  flex: 1;
+/* 聊天占位符 */
+.chat-placeholder {
+  flex: 2;
+  background-color: #f8f9fa;
+  border-radius: 12px;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background-color: #f9f9f9;
+  justify-content: center;
   color: #999;
-  font-size: 16px;
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* 响应式设计 */
 @media (max-width: 768px) {
   .chat-container {
     flex-direction: column;
   }
   
-  .conversations-list {
-    width: 100%;
-    height: 40%;
-    border-right: none;
-    border-bottom: 1px solid #e5e5e5;
+  .chat-list {
+    max-width: 100%;
   }
   
-  .chat-area {
-    height: 60%;
+  .chat-content {
+    min-height: 500px;
   }
 }
 </style>
