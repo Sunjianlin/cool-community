@@ -47,7 +47,7 @@ const handleLogin = async () => {
     ElMessage.warning('请输入密码')
     return
   }
-  
+
   loading.value = true
   try {
     await userStore.login(formData.value.username, formData.value.password)
@@ -128,6 +128,7 @@ onMounted(() => {
 
 .form-actions {
   margin-top: 32px;
+  width: 100%; /* 确保容器宽度正确 */
 }
 
 .form-actions .btn {
@@ -135,6 +136,19 @@ onMounted(() => {
   padding: 14px;
   font-size: 16px;
   font-weight: 500;
+  border: none; /* 确保按钮无边框 */
+  border-radius: 8px; /* 与输入框保持一致的圆角 */
+  background-color: #3498db; /* 设置按钮背景色 */
+  color: white; /* 设置按钮文字颜色 */
+  cursor: pointer; /* 设置鼠标指针 */
+  transition: all 0.3s; /* 添加过渡效果 */
+  text-align: center; /* 文字水平居中 */
+  line-height: 1; /* 确保文字垂直居中 */
+  display: inline-block; /* 确保文字对齐生效 */
+}
+
+.form-actions .btn:hover:not(:disabled) {
+  background-color: #2980b9; /*  hover 效果 */
 }
 
 .form-actions .btn:disabled {

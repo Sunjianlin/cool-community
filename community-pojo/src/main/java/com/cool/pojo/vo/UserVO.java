@@ -21,4 +21,5 @@ public class UserVO {
     private Integer postCount;
     private Integer likeCount;
     private Boolean isFollowing;
+    private Integer onlineStatus;
 }

@@ -63,6 +63,10 @@ const userApi = {
   
   deleteUser: (id) => {
     return axios.delete(`/user/${id}`)
+  },
+  
+  updateOnlineStatus: (status) => {
+    return axios.put('/api/online-status', { status })
   }
 }
 

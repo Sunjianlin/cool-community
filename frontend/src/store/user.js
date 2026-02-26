@@ -8,7 +8,8 @@ export const useUserStore = defineStore('user', {
     isLoggedIn: false,
     user: null,
     userAvatar: DEFAULT_AVATAR,
-    isInitialized: false
+    isInitialized: false,
+    tokenCheckInterval: null
   }),
   
   getters: {
@@ -48,6 +49,9 @@ export const useUserStore = defineStore('user', {
         localStorage.setItem('user', JSON.stringify(user))
         localStorage.setItem('token', user.token)
         
+        // 启动token检测
+        this.startTokenCheck()
+        
         return user
       } catch (error) {
         console.error('登录失败:', error)
@@ -70,6 +74,9 @@ export const useUserStore = defineStore('user', {
       } catch (error) {
         console.error('退出登录失败:', error)
       } finally {
+        // 停止token检测
+        this.stopTokenCheck()
+        
         this.user = null
         this.isLoggedIn = false
         this.userAvatar = DEFAULT_AVATAR
@@ -79,6 +86,9 @@ export const useUserStore = defineStore('user', {
     },
     
     clearAuth() {
+      // 停止token检测
+      this.stopTokenCheck()
+      
       this.user = null
       this.isLoggedIn = false
       this.userAvatar = DEFAULT_AVATAR
@@ -110,49 +120,46 @@ export const useUserStore = defineStore('user', {
           this.isInitialized = true
           return true
         } else {
-          // 如果后端返回错误，但本地存储有用户数据，尝试使用本地数据恢复登录状态
-          if (userStr) {
-            try {
-              const userData = JSON.parse(userStr)
-              this.setLoggedIn(userData)
-              this.isInitialized = true
-              return true
-            } catch (e) {
-              this.clearAuth()
-              this.isInitialized = true
-              return false
-            }
-          } else {
-            this.clearAuth()
-            this.isInitialized = true
-            return false
-          }
-        }
-      } catch (error) {
-        console.error('Token验证失败:', error)
-        // 如果请求失败，但本地存储有用户数据，尝试使用本地数据恢复登录状态
-        if (userStr) {
-          try {
-            const userData = JSON.parse(userStr)
-            this.setLoggedIn(userData)
-            this.isInitialized = true
-            return true
-          } catch (e) {
-            this.clearAuth()
-            this.isInitialized = true
-            return false
-          }
-        } else {
+          // 如果后端返回错误，清除认证信息
           this.clearAuth()
           this.isInitialized = true
           return false
         }
+      } catch (error) {
+        console.error('Token验证失败:', error)
+        // 如果请求失败，清除认证信息
+        this.clearAuth()
+        this.isInitialized = true
+        return false
       }
     },
     
     async initAuth() {
       this.isInitialized = false
-      await this.validateToken()
+      const isValid = await this.validateToken()
+      if (isValid) {
+        // 如果token有效，启动token检测
+        this.startTokenCheck()
+      }
+    },
+    
+    // 启动token检测
+    startTokenCheck() {
+      // 清除之前的检测间隔
+      this.stopTokenCheck()
+      
+      // 每5分钟检测一次token有效性
+      this.tokenCheckInterval = setInterval(async () => {
+        await this.validateToken()
+      }, 5 * 60 * 1000)
+    },
+    
+    // 停止token检测
+    stopTokenCheck() {
+      if (this.tokenCheckInterval) {
+        clearInterval(this.tokenCheckInterval)
+        this.tokenCheckInterval = null
+      }
     }
   }
 })

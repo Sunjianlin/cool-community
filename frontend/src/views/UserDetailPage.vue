@@ -6,7 +6,13 @@
         <div class="user-info">
           <h2>{{ userInfo.nickname || '用户' }}</h2>
           <p class="username">@{{ userInfo.username }}</p>
-          <p class="role-tag">{{ getRoleName(userInfo.role) }}</p>
+          <div class="role-status-container">
+            <p class="role-tag">{{ getRoleName(userInfo.role) }}</p>
+            <p class="status-tag" :class="getOnlineStatusClass(userInfo.onlineStatus)">
+              <span class="status-icon">{{ getStatusIcon(userInfo.onlineStatus) }}</span>
+              {{ getOnlineStatusName(userInfo.onlineStatus) }}
+            </p>
+          </div>
           <p v-if="userInfo.bio" class="bio">{{ userInfo.bio }}</p>
           <div v-if="isCurrentUser" class="user-contact">
             <p v-if="userInfo.email" class="contact-item">📧 {{ userInfo.email }}</p>
@@ -39,10 +45,13 @@
           <button class="btn btn-primary" @click="editUserProfile">
             编辑资料
           </button>
+          <button class="btn btn-outline" @click="showStatusDialog = true">
+            设置状态
+          </button>
         </template>
         <template v-else>
-          <button 
-            class="btn" 
+          <button
+            class="btn"
             :class="userInfo.isFollowing ? 'btn-following' : 'btn-primary'"
             @click="toggleFollow"
           >
@@ -80,7 +89,7 @@
         </div>
       </div>
     </div>
-    
+
     <el-dialog v-model="showFollowDialog" :title="followDialogTitle" width="500px">
       <div class="follow-list" v-if="followList.length > 0">
         <div class="follow-item" v-for="user in followList" :key="user.id">
@@ -89,7 +98,7 @@
             <span class="follow-name">{{ user.nickname || user.username }}</span>
             <span class="follow-bio">{{ user.bio || '暂无简介' }}</span>
           </div>
-          <button 
+          <button
             v-if="!isCurrentUser || followType === 'followers'"
             class="btn btn-sm"
             :class="user.isFollowing ? 'btn-following' : 'btn-primary'"
@@ -103,7 +112,7 @@
         {{ followType === 'following' ? '还没有关注任何人' : '还没有粉丝' }}
       </div>
     </el-dialog>
-    
+
     <!-- 编辑资料模态框 -->
     <el-dialog v-model="showEditDialog" title="编辑资料" width="500px">
       <div class="edit-profile-form">
@@ -158,6 +167,30 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 设置状态模态框 -->
+    <el-dialog v-model="showStatusDialog" title="设置在线状态" width="400px">
+      <div class="status-setting-form">
+        <div class="form-item">
+          <label>当前状态</label>
+          <div class="status-select">
+            <label class="status-option" v-for="status in statusOptions" :key="status.value">
+              <input type="radio" v-model="selectedStatus" :value="status.value" />
+              <span class="status-icon">{{ status.icon }}</span>
+              <span class="status-text">{{ status.label }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <button class="btn btn-outline" @click="showStatusDialog = false">取消</button>
+          <button class="btn btn-primary" @click="saveStatus" :disabled="savingStatus">
+            {{ savingStatus ? '保存中...' : '保存' }}
+          </button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -182,6 +215,13 @@ const followList = ref([])
 const showEditDialog = ref(false)
 const editForm = ref({})
 const savingProfile = ref(false)
+const showStatusDialog = ref(false)
+const selectedStatus = ref(0)
+const statusOptions = [
+  { value: 1, label: '在线', icon: '🟢' },
+  { value: 2, label: '忙碌', icon: '🔴' },
+  { value: 3, label: '离开', icon: '🟡' }
+]
 
 const isCurrentUser = computed(() => {
   return userStore.user?.id === Number(route.params.id)
@@ -226,7 +266,7 @@ const toggleFollow = async () => {
     router.push('/login')
     return
   }
-  
+
   try {
     if (userInfo.value.isFollowing) {
       await userApi.unfollowUser(userInfo.value.id)
@@ -275,13 +315,27 @@ const editUserProfile = () => {
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0]
   if (file) {
-    // 实际项目中应该上传文件到服务器
-    // 这里使用FileReader来预览图片
+    // 预览图片
     const reader = new FileReader()
     reader.onload = (e) => {
       editForm.value.avatar = e.target.result
     }
     reader.readAsDataURL(file)
+
+    // 上传文件到服务器
+    const formData = new FormData()
+    formData.append('file', file)
+
+    userApi.uploadAvatar(file).then(response => {
+      if (response.code === 200) {
+        // 使用服务器返回的头像URL
+        editForm.value.avatar = response.data
+        ElMessage.success('头像上传成功')
+      }
+    }).catch(error => {
+      console.error('头像上传失败:', error)
+      ElMessage.error('头像上传失败')
+    })
   }
 }
 
@@ -291,23 +345,23 @@ const saveProfile = async () => {
     ElMessage.warning('请输入昵称')
     return
   }
-  
+
   savingProfile.value = true
   try {
     // 实际项目中应该调用API更新用户资料
     const response = await userApi.updateUserInfo(editForm.value)
-    
+
     // 更新本地用户信息
     userInfo.value = {
       ...userInfo.value,
       ...editForm.value
     }
-    
+
     // 更新用户存储中的头像
     if (editForm.value.avatar) {
       userStore.updateAvatar(editForm.value.avatar)
     }
-    
+
     showEditDialog.value = false
     ElMessage.success('资料更新成功')
   } catch (error) {
@@ -333,7 +387,7 @@ const showFollowers = async () => {
 const loadFollowList = async () => {
   try {
     const userId = route.params.id
-    const response = followType.value === 'following' 
+    const response = followType.value === 'following'
       ? await userApi.getFollowingList(userId, { page: 1, pageSize: 50 })
       : await userApi.getFollowerList(userId, { page: 1, pageSize: 50 })
     followList.value = response.data?.records || []
@@ -348,7 +402,7 @@ const toggleFollowUser = async (user) => {
     ElMessage.warning('请先登录')
     return
   }
-  
+
   try {
     if (user.isFollowing) {
       await userApi.unfollowUser(user.id)
@@ -396,6 +450,71 @@ const getStatusName = (status) => {
       return '已拒绝'
     default:
       return '未知状态'
+  }
+}
+
+// 获取在线状态的样式类
+const getOnlineStatusClass = (status) => {
+  switch (status) {
+    case 1:
+      return 'status-online'
+    case 2:
+      return 'status-busy'
+    case 3:
+      return 'status-away'
+    default:
+      return 'status-offline'
+  }
+}
+
+// 获取在线状态的图标
+const getStatusIcon = (status) => {
+  switch (status) {
+    case 1:
+      return '🟢'
+    case 2:
+      return '🔴'
+    case 3:
+      return '🟡'
+    default:
+      return '⚪'
+  }
+}
+
+// 获取在线状态的名称
+const getOnlineStatusName = (status) => {
+  switch (status) {
+    case 1:
+      return '在线'
+    case 2:
+      return '忙碌'
+    case 3:
+      return '离开'
+    default:
+      return '离线'
+  }
+}
+
+// 保存状态
+const saveStatus = async () => {
+  savingProfile.value = true
+  try {
+    // 调用API更新用户在线状态
+    await userApi.updateOnlineStatus(selectedStatus.value)
+
+    // 更新本地用户信息
+    userInfo.value = {
+      ...userInfo.value,
+      onlineStatus: selectedStatus.value
+    }
+
+    ElMessage.success('状态更新成功')
+    showStatusDialog.value = false
+  } catch (error) {
+    console.error('更新状态失败:', error)
+    ElMessage.error('更新状态失败')
+  } finally {
+    savingProfile.value = false
   }
 }
 
@@ -1129,6 +1248,105 @@ watch(() => route.params.id, () => {
   padding: 24px 0;
 }
 
+/* 角色和状态容器样式 */
+.role-status-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* 状态标签样式 */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: var(--transition);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.status-online {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: var(--success-color);
+  border-color: rgba(46, 204, 113, 0.2);
+}
+
+.status-busy {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--accent-color);
+  border-color: rgba(231, 76, 60, 0.2);
+}
+
+.status-away {
+  background-color: rgba(243, 156, 18, 0.1);
+  color: var(--warning-color);
+  border-color: rgba(243, 156, 18, 0.2);
+}
+
+.status-offline {
+  background-color: rgba(149, 165, 166, 0.1);
+  color: var(--text-secondary);
+  border-color: rgba(149, 165, 166, 0.2);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+/* 状态设置样式 */
+.status-setting-form {
+  margin-bottom: 24px;
+}
+
+.status-select {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  padding: 16px 20px;
+  border-radius: 12px;
+  transition: var(--transition);
+  border: 2px solid var(--border-color);
+  background: var(--background-white);
+}
+
+.status-option:hover {
+  border-color: var(--primary-color);
+  background: rgba(52, 152, 219, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
+}
+
+.status-option input[type="radio"] {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary-color);
+}
+
+.status-text {
+  font-size: 16px;
+  color: var(--text-primary);
+  font-weight: 500;
+  flex: 1;
+}
+
 /* 对话框样式 */
 :deep(.el-dialog) {
   border-radius: var(--border-radius);
@@ -1182,11 +1400,11 @@ watch(() => route.params.id, () => {
   .user-detail-page {
     max-width: 100%;
   }
-  
+
   .avatar-section {
     gap: 32px;
   }
-  
+
   .user-info h2 {
     font-size: 24px;
   }
@@ -1196,77 +1414,77 @@ watch(() => route.params.id, () => {
   .user-header {
     padding: 24px;
   }
-  
+
   .avatar-section {
     flex-direction: column;
     text-align: center;
     gap: 24px;
   }
-  
+
   .avatar {
     width: 120px;
     height: 120px;
   }
-  
+
   .user-info {
     text-align: center;
   }
-  
+
   .user-stats {
     justify-content: center;
     gap: 24px;
     flex-wrap: wrap;
   }
-  
+
   .user-actions {
     flex-direction: column;
     align-items: center;
     gap: 12px;
   }
-  
+
   .btn {
     width: 240px;
     text-align: center;
     justify-content: center;
   }
-  
+
   .user-posts {
     padding: 24px;
   }
-  
+
   .post-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .post-status {
     align-self: flex-start;
   }
-  
+
   .gender-select {
     flex-direction: column;
     gap: 16px;
   }
-  
+
   .gender-option {
     justify-content: center;
   }
-  
+
   :deep(.el-dialog__header) {
     padding: 20px 24px;
   }
-  
+
   :deep(.el-dialog__body) {
     padding: 24px;
   }
-  
+
   :deep(.el-dialog__footer) {
     padding: 20px 24px;
     flex-direction: column;
     gap: 12px;
   }
-  
+
   :deep(.el-dialog__footer) .btn {
     width: 100%;
   }
@@ -1276,39 +1494,39 @@ watch(() => route.params.id, () => {
   .user-header {
     padding: 16px;
   }
-  
+
   .avatar {
     width: 100px;
     height: 100px;
   }
-  
+
   .user-info h2 {
     font-size: 20px;
   }
-  
+
   .user-stats {
     flex-direction: column;
     gap: 12px;
     align-items: center;
   }
-  
+
   .stat-item {
     width: 200px;
     justify-content: center;
   }
-  
+
   .user-posts {
     padding: 16px;
   }
-  
+
   .post-card {
     padding: 16px;
   }
-  
+
   .post-card h4 {
     font-size: 18px;
   }
-  
+
   .post-meta {
     flex-wrap: wrap;
     gap: 12px;

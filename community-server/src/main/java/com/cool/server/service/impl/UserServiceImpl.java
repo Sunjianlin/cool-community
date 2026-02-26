@@ -12,17 +12,25 @@ import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.UserLoginVO;
 import com.cool.pojo.vo.UserVO;
 import com.cool.server.context.BaseContext;
+import com.cool.common.enumeration.OnlineStatus;
 import com.cool.server.mapper.UserMapper;
+import com.cool.server.service.OnlineStatusService;
 import com.cool.server.service.UserService;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static com.cool.common.constant.RedisConstant.TOKEN_EXPIRE_TIME;
 
 @Slf4j
 @Service
@@ -31,11 +39,25 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate stringRedisTemplate;
+    private final OnlineStatusService onlineStatusService;
+    private final String aliyunOssEndpoint;
+    private final String aliyunOssAccessKeyId;
+    private final String aliyunOssAccessKeySecret;
+    private final String aliyunOssBucketName;
 
-    public UserServiceImpl(UserMapper userMapper, JwtProperties jwtProperties, StringRedisTemplate stringRedisTemplate) {
+    public UserServiceImpl(UserMapper userMapper, JwtProperties jwtProperties, StringRedisTemplate stringRedisTemplate, OnlineStatusService onlineStatusService,
+                          @Value("${aliyun.oss.endpoint}") String aliyunOssEndpoint,
+                          @Value("${aliyun.oss.access-key-id}") String aliyunOssAccessKeyId,
+                          @Value("${aliyun.oss.access-key-secret}") String aliyunOssAccessKeySecret,
+                          @Value("${aliyun.oss.bucket-name}") String aliyunOssBucketName) {
         this.userMapper = userMapper;
         this.jwtProperties = jwtProperties;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.onlineStatusService = onlineStatusService;
+        this.aliyunOssEndpoint = aliyunOssEndpoint;
+        this.aliyunOssAccessKeyId = aliyunOssAccessKeyId;
+        this.aliyunOssAccessKeySecret = aliyunOssAccessKeySecret;
+        this.aliyunOssBucketName = aliyunOssBucketName;
     }
 
     @Override
@@ -61,7 +83,7 @@ public class UserServiceImpl implements UserService {
         String token = JwtUtil.createToken(jwtProperties.getSecretKey(), jwtProperties.getExpireTime(), claims);
         
         String tokenKey = RedisConstant.USER_TOKEN_KEY + user.getId();
-        stringRedisTemplate.opsForValue().set(tokenKey, token);
+        stringRedisTemplate.opsForValue().set(tokenKey, token,TOKEN_EXPIRE_TIME, TimeUnit.SECONDS);
         log.info("用户登录成功，生成新token并覆盖旧token: userId={}", user.getId());
         
         UserLoginVO vo = new UserLoginVO();
@@ -109,6 +131,11 @@ public class UserServiceImpl implements UserService {
         BeanUtil.copyProperties(user, vo);
         vo.setFollowingCount(userMapper.getFollowingCount(userId));
         vo.setFollowerCount(userMapper.getFollowerCount(userId));
+        
+        // 获取在线状态
+        OnlineStatus status = onlineStatusService.getStatus(userId);
+        vo.setOnlineStatus(status.getCode());
+        
         return vo;
     }
 
@@ -123,6 +150,10 @@ public class UserServiceImpl implements UserService {
         BeanUtil.copyProperties(user, vo);
         vo.setFollowingCount(userMapper.getFollowingCount(id));
         vo.setFollowerCount(userMapper.getFollowerCount(id));
+        
+        // 获取在线状态
+        OnlineStatus status = onlineStatusService.getStatus(id);
+        vo.setOnlineStatus(status.getCode());
         
         Long currentUserId = BaseContext.getCurrentId();
         if (currentUserId != null) {
@@ -143,7 +174,33 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public String uploadAvatar(MultipartFile file) {
-        return null;
+        OSS ossClient = null;
+        try {
+            // 初始化OSS客户端
+            ossClient = new OSSClientBuilder().build(aliyunOssEndpoint, aliyunOssAccessKeyId, aliyunOssAccessKeySecret);
+            
+            // 生成唯一文件名
+            String originalFilename = file.getOriginalFilename();
+            String suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String filename = "avatars/" + System.currentTimeMillis() + suffix;
+            
+            // 上传文件到OSS
+            ossClient.putObject(aliyunOssBucketName, filename, file.getInputStream());
+            
+            // 构建文件URL
+            String fileUrl = "https://" + aliyunOssBucketName + "." + aliyunOssEndpoint + "/" + filename;
+            
+            // 返回文件URL
+            return fileUrl;
+        } catch (Exception e) {
+            log.error("上传头像失败", e);
+            throw new RuntimeException("上传头像失败");
+        } finally {
+            // 关闭OSS客户端
+            if (ossClient != null) {
+                ossClient.shutdown();
+            }
+        }
     }
 
     @Override

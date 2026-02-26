@@ -113,8 +113,9 @@
               </div>
               <p class="comment-text">{{ comment.content }}</p>
               <div class="comment-actions">
-                <button class="comment-action-btn" @click="toggleCommentLike(comment)">👍 {{ comment.likeCount || 0 }}</button>
+                <button class="comment-action-btn" @click="toggleCommentLike(comment)">{{ comment.isLiked ? '❤️' : '👍' }} {{ comment.likeCount || 0 }}</button>
                 <button class="comment-action-btn" @click="replyToComment(comment)">回复</button>
+                <button v-if="userStore.user?.id === comment.userId" class="comment-action-btn" @click="deleteComment(comment)">删除</button>
               </div>
               <!-- 回复输入框 -->
               <div v-if="replyingTo === comment.id" class="comment-reply-input">
@@ -155,6 +156,19 @@
         <div class="empty-comments" v-else>
           <p>暂无评论，快来发表第一条评论吧！</p>
         </div>
+        
+        <!-- 分页组件 -->
+        <div v-if="totalComments > pageSize" class="pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="totalComments"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
       </div>
     </template>
     
@@ -194,6 +208,11 @@ const imagePreviewVisible = ref(false)
 const previewImageUrl = ref('')
 const replyingTo = ref(null)
 const replyContent = ref('')
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalComments = ref(0)
 
 const postImages = computed(() => {
   if (!post.value?.images) return []
@@ -245,13 +264,18 @@ const loadPost = async () => {
 
 const loadComments = async () => {
   try {
-    const response = await commentApi.getCommentsByPostId(route.params.id)
+    const response = await commentApi.getCommentsByPostId(route.params.id, {
+      page: currentPage.value,
+      pageSize: pageSize.value
+    })
     if (response.code === 200 && response.data) {
-      comments.value = response.data || []
+      comments.value = response.data.records || []
+      totalComments.value = response.data.total || 0
     }
   } catch (error) {
     console.error('加载评论失败:', error)
     comments.value = []
+    totalComments.value = 0
   }
 }
 
@@ -312,12 +336,18 @@ const toggleCommentLike = async (comment) => {
     return
   }
   try {
-    // 实际项目中应该调用API点赞评论
-    comment.likeCount = (comment.likeCount || 0) + 1
-    ElMessage.success('点赞成功')
+    if (comment.isLiked) {
+      await commentApi.unlikeComment(comment.id)
+      comment.likeCount = Math.max(0, (comment.likeCount || 1) - 1)
+    } else {
+      await commentApi.likeComment(comment.id)
+      comment.likeCount = (comment.likeCount || 0) + 1
+    }
+    comment.isLiked = !comment.isLiked
+    ElMessage.success(comment.isLiked ? '点赞成功' : '已取消点赞')
   } catch (error) {
     console.error('点赞评论失败:', error)
-    ElMessage.error('点赞失败')
+    ElMessage.error('操作失败')
   }
 }
 
@@ -339,21 +369,28 @@ const submitReply = async (comment) => {
   }
   
   try {
-    // 实际项目中应该调用API提交回复
-    if (!comment.replies) {
-      comment.replies = []
-    }
-    comment.replies.push({
-      id: Date.now(),
-      userId: userStore.user?.id,
-      userNickname: userStore.user?.nickname,
-      content: replyContent.value.trim(),
-      createTime: new Date().toISOString(),
-      likeCount: 0
+    const response = await commentApi.createComment({
+      postId: post.value.id,
+      parentId: comment.id,
+      content: replyContent.value.trim()
     })
-    replyingTo.value = null
-    replyContent.value = ''
-    ElMessage.success('回复成功')
+    
+    if (response.code === 200) {
+      if (!comment.replies) {
+        comment.replies = []
+      }
+      comment.replies.push({
+        id: response.data?.id || Date.now(),
+        userId: userStore.user?.id,
+        userNickname: userStore.user?.nickname,
+        content: replyContent.value.trim(),
+        createTime: new Date().toISOString(),
+        likeCount: 0
+      })
+      replyingTo.value = null
+      replyContent.value = ''
+      ElMessage.success('回复成功')
+    }
   } catch (error) {
     console.error('提交回复失败:', error)
     ElMessage.error('回复失败')
@@ -398,6 +435,35 @@ const submitComment = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+// 删除评论
+const deleteComment = async (comment) => {
+  try {
+    await commentApi.deleteComment(comment.id)
+    const index = comments.value.findIndex(c => c.id === comment.id)
+    if (index !== -1) {
+      comments.value.splice(index, 1)
+      post.value.commentCount = Math.max(0, (post.value.commentCount || 1) - 1)
+      totalComments.value = Math.max(0, totalComments.value - 1)
+      ElMessage.success('评论已删除')
+    }
+  } catch (error) {
+    console.error('删除评论失败:', error)
+    ElMessage.error('删除失败')
+  }
+}
+
+// 分页事件处理
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadComments()
+}
+
+const handleCurrentChange = (current) => {
+  currentPage.value = current
+  loadComments()
 }
 
 const loadData = async () => {
@@ -885,6 +951,13 @@ watch(() => route.params.id, () => {
   background: #2980b9;
 }
 
+/* 分页样式 */
+.pagination {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
 @media (max-width: 768px) {
   .post-card {
     padding: 16px;
@@ -902,6 +975,10 @@ watch(() => route.params.id, () => {
   .action-btn {
     padding: 8px 16px;
     font-size: 13px;
+  }
+  
+  .pagination {
+    margin-top: 16px;
   }
 }
 </style>
