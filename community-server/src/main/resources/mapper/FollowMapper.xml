@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.FollowMapper">
+
+    <!-- 获取关注用户列表 -->
+    <select id="getFollowingUserList" resultType="com.cool.pojo.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.avatar, u.bio, u.follower_count, u.following_count, u.post_count
+        FROM follow f
+        LEFT JOIN user u ON f.follow_id = u.id
+        WHERE f.user_id = #{userId} AND f.type = 0 AND f.deleted = 0 AND u.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <!-- 获取粉丝列表 -->
+    <select id="getFollowerList" resultType="com.cool.pojo.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.avatar, u.bio, u.follower_count, u.following_count, u.post_count
+        FROM follow f
+        LEFT JOIN user u ON f.user_id = u.id
+        WHERE f.follow_id = #{userId} AND f.type = 0 AND f.deleted = 0 AND u.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <!-- 获取关注话题列表 -->
+    <select id="getFollowingTopicList" resultType="com.cool.pojo.vo.TopicVO">
+        SELECT t.id, t.name, t.description, t.icon, t.cover, t.category, t.follow_count, t.post_count, t.is_hot
+        FROM follow f
+        LEFT JOIN topic t ON f.follow_id = t.id
+        WHERE f.user_id = #{userId} AND f.type = 1 AND f.deleted = 0 AND t.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <!-- 获取话题关注者列表 -->
+    <select id="getTopicFollowerList" resultType="com.cool.pojo.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.avatar, u.bio, u.follower_count, u.following_count, u.post_count
+        FROM follow f
+        LEFT JOIN user u ON f.user_id = u.id
+        WHERE f.follow_id = #{topicId} AND f.type = 1 AND f.deleted = 0 AND u.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <!-- 获取关注产品列表 -->
+    <select id="getFollowingProductList" resultType="com.cool.pojo.vo.ProductVO">
+        SELECT p.id, p.name, p.description, p.image, p.brand, p.category_id as categoryId, p.price, p.specs, p.review_count as reviewCount, p.follow_count as followCount, p.status
+        FROM follow f
+        LEFT JOIN product p ON f.follow_id = p.id
+        WHERE f.user_id = #{userId} AND f.type = 2 AND f.deleted = 0 AND p.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <!-- 获取产品关注者列表 -->
+    <select id="getProductFollowerList" resultType="com.cool.pojo.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.avatar, u.bio, u.follower_count, u.following_count, u.post_count
+        FROM follow f
+        LEFT JOIN user u ON f.user_id = u.id
+        WHERE f.follow_id = #{productId} AND f.type = 2 AND f.deleted = 0 AND u.deleted = 0
+        ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>
