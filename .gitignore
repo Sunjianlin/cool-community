@@ -21,6 +21,7 @@ Thumbs.db
 community-server/src/main/resources/application-dev.yml
 community-server/src/main/resources/application-prod.yml
 sql
+database
 # 前端
 frontend/node_modules/
 frontend/dist/
