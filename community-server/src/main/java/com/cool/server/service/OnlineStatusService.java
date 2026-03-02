@@ -21,4 +21,13 @@ public interface OnlineStatusService {
     
     // 用户离线处理
     void handleOffline(Long userId);
+    
+    // 获取在线用户总数
+    long getOnlineUserCount();
+    
+    // 获取不同状态的在线用户数
+    java.util.Map<OnlineStatus, Long> getOnlineUserCountByStatus();
+    
+    // 获取最近在线的用户
+    java.util.List<com.cool.pojo.vo.UserVO> getRecentOnlineUsers(int limit);
 }

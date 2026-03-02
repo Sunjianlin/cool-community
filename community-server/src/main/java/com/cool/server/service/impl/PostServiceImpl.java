@@ -10,10 +10,12 @@ import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.PostVO;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.PostMapper;
+import com.cool.server.mapper.UserMapper;
 import com.cool.server.service.PostService;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -24,6 +26,9 @@ public class PostServiceImpl implements PostService {
     
     private final PostMapper postMapper;
     private final StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private UserMapper userMapper;
 
     public PostServiceImpl(PostMapper postMapper, StringRedisTemplate stringRedisTemplate) {
         this.postMapper = postMapper;
@@ -51,6 +56,7 @@ public class PostServiceImpl implements PostService {
         }
         
         postMapper.insert(post);
+        userMapper.addPostCount(userId);
         
         // 这里可以添加产品评测相关的处理逻辑
         // 例如创建产品评测记录，更新产品的评测数等

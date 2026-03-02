@@ -138,7 +138,57 @@
     
     <div v-if="currentNav === 'users'" class="admin-section">
       <h3 class="section-title">用户管理</h3>
-      <el-table :data="users" style="width: 100%">
+      
+      <!-- 在线用户统计 -->
+      <div class="online-stats-section" v-if="onlineStats.totalOnline !== undefined">
+        <h4 class="stats-title">在线用户统计</h4>
+        <div class="stats-grid">
+          <div class="stats-card">
+            <div class="stats-value">{{ onlineStats.totalOnline }}</div>
+            <div class="stats-label">总在线用户</div>
+          </div>
+          <div class="stats-card" v-for="(count, status) in onlineStats.statusCounts" :key="status">
+            <div class="stats-value">{{ count }}</div>
+            <div class="stats-label">{{ getStatusName(status) }}</div>
+          </div>
+        </div>
+        
+        <div v-if="onlineStats.recentUsers && onlineStats.recentUsers.length > 0" class="recent-users-section">
+          <h5 class="recent-users-title">最近在线用户</h5>
+          <div class="recent-users-list">
+            <div class="recent-user-item" v-for="user in onlineStats.recentUsers" :key="user.id">
+              <img :src="user.avatar || defaultAvatar" class="recent-user-avatar" />
+              <div class="recent-user-info">
+                <div class="recent-user-name">{{ user.nickname || user.username }}</div>
+                <div class="recent-user-role">{{ getUserRoleName(user.role) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 用户筛选 -->
+      <div class="filter-section">
+        <el-select v-model="userFilter.role" placeholder="选择角色" style="width: 120px; margin-right: 10px">
+          <el-option label="全部角色" value="" />
+          <el-option label="普通用户" value="0" />
+          <el-option label="管理员" value="1" />
+        </el-select>
+        <el-select v-model="userFilter.status" placeholder="选择状态" style="width: 120px; margin-right: 10px">
+          <el-option label="全部状态" value="" />
+          <el-option label="正常" value="1" />
+          <el-option label="已禁用" value="0" />
+        </el-select>
+        <el-input 
+          v-model="userFilter.keyword" 
+          placeholder="搜索用户名或昵称" 
+          style="width: 200px; margin-right: 10px" 
+          @keyup.enter="loadUsers"
+        />
+        <el-button type="primary" @click="loadUsers">搜索</el-button>
+      </div>
+      
+      <el-table :data="users" style="width: 100%" v-loading="loading.users">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column label="头像" width="80">
           <template #default="scope">
@@ -162,6 +212,18 @@
           </template>
         </el-table-column>
       </el-table>
+      
+      <div class="pagination-section">
+        <el-pagination
+          v-model:current-page="userPagination.currentPage"
+          v-model:page-size="userPagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="userPagination.total"
+          @size-change="loadUsers"
+          @current-change="loadUsers"
+        />
+      </div>
     </div>
     
     <div v-if="currentNav === 'posts'" class="admin-section">
@@ -333,9 +395,13 @@ const editingBrand = ref({ id: null, name: '', logo: '' })
 
 const topicFilter = ref({ keyword: '' })
 const productFilter = ref({ categoryId: '', keyword: '' })
+const userFilter = ref({ role: '', status: '', keyword: '' })
 
 const topicPagination = ref({ currentPage: 1, pageSize: 10, total: 0 })
 const productPagination = ref({ currentPage: 1, pageSize: 10, total: 0 })
+const userPagination = ref({ currentPage: 1, pageSize: 20, total: 0 })
+
+const onlineStats = ref({ totalOnline: 0, statusCounts: {}, recentUsers: [] })
 
 const uploadUrl = computed(() => 'http://localhost:8082/api/file/upload')
 
@@ -478,12 +544,29 @@ const loadBrands = async () => {
 const loadUsers = async () => {
   loading.value.users = true
   try {
-    const response = await adminApi.getUserList({ page: 1, pageSize: 100 })
+    const params = {
+      page: userPagination.value.currentPage,
+      pageSize: userPagination.value.pageSize,
+      role: userFilter.value.role || undefined,
+      status: userFilter.value.status || undefined,
+      keyword: userFilter.value.keyword
+    }
+    const response = await adminApi.getUserList(params)
     users.value = response.data?.records || []
+    userPagination.value.total = response.data?.total || 0
   } catch (error) {
     console.error('加载用户失败:', error)
   } finally {
     loading.value.users = false
+  }
+}
+
+const loadOnlineStats = async () => {
+  try {
+    const response = await adminApi.getOnlineUserStats()
+    onlineStats.value = response.data || { totalOnline: 0, statusCounts: {}, recentUsers: [] }
+  } catch (error) {
+    console.error('加载在线用户统计失败:', error)
   }
 }
 
@@ -728,6 +811,20 @@ const deletePostItem = async (id) => {
   }
 }
 
+const getStatusName = (status) => {
+  const statusMap = {
+    'ONLINE': '在线',
+    'BUSY': '忙碌',
+    'AWAY': '离开',
+    'OFFLINE': '离线'
+  }
+  return statusMap[status] || status
+}
+
+const getUserRoleName = (role) => {
+  return role === 1 ? '管理员' : '普通用户'
+}
+
 onMounted(() => {
   loadTopics()
   loadProducts()
@@ -736,6 +833,7 @@ onMounted(() => {
   loadBrands()
   loadUsers()
   loadPosts()
+  loadOnlineStats()
 })
 </script>
 
@@ -859,6 +957,99 @@ onMounted(() => {
   color: #8c939d;
 }
 
+/* 在线用户统计 */
+.online-stats-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.stats-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stats-card {
+  background-color: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.stats-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #3498db;
+  margin-bottom: 8px;
+}
+
+.stats-label {
+  font-size: 14px;
+  color: #666;
+}
+
+.recent-users-section {
+  margin-top: 20px;
+}
+
+.recent-users-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.recent-users-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.recent-user-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: white;
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.recent-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.recent-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.recent-user-role {
+  font-size: 12px;
+  color: #666;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .admin-nav {
@@ -887,6 +1078,14 @@ onMounted(() => {
   }
   
   .pagination-section {
+    justify-content: center;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .recent-users-list {
     justify-content: center;
   }
 }

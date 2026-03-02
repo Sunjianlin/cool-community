@@ -14,6 +14,7 @@ import com.cool.pojo.vo.UserVO;
 import com.cool.server.context.BaseContext;
 import com.cool.common.enumeration.OnlineStatus;
 import com.cool.server.mapper.UserMapper;
+import com.cool.server.service.FollowService;
 import com.cool.server.service.OnlineStatusService;
 import com.cool.server.service.UserService;
 import cn.hutool.core.bean.BeanUtil;
@@ -40,12 +41,13 @@ public class UserServiceImpl implements UserService {
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate stringRedisTemplate;
     private final OnlineStatusService onlineStatusService;
+    private final FollowService followService;
     private final String aliyunOssEndpoint;
     private final String aliyunOssAccessKeyId;
     private final String aliyunOssAccessKeySecret;
     private final String aliyunOssBucketName;
 
-    public UserServiceImpl(UserMapper userMapper, JwtProperties jwtProperties, StringRedisTemplate stringRedisTemplate, OnlineStatusService onlineStatusService,
+    public UserServiceImpl(UserMapper userMapper, JwtProperties jwtProperties, StringRedisTemplate stringRedisTemplate, OnlineStatusService onlineStatusService, FollowService followService,
                           @Value("${aliyun.oss.endpoint}") String aliyunOssEndpoint,
                           @Value("${aliyun.oss.access-key-id}") String aliyunOssAccessKeyId,
                           @Value("${aliyun.oss.access-key-secret}") String aliyunOssAccessKeySecret,
@@ -54,6 +56,7 @@ public class UserServiceImpl implements UserService {
         this.jwtProperties = jwtProperties;
         this.stringRedisTemplate = stringRedisTemplate;
         this.onlineStatusService = onlineStatusService;
+        this.followService = followService;
         this.aliyunOssEndpoint = aliyunOssEndpoint;
         this.aliyunOssAccessKeyId = aliyunOssAccessKeyId;
         this.aliyunOssAccessKeySecret = aliyunOssAccessKeySecret;
@@ -205,37 +208,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void followUser(Long id) {
-        Long userId = BaseContext.getCurrentId();
-        
-        if (userId.equals(id)) {
-            throw new RuntimeException("不能关注自己");
-        }
-        
-        User targetUser = userMapper.getById(id);
-        if (targetUser == null) {
-            throw new RuntimeException(MessageConstant.USER_NOT_FOUND);
-        }
-        
-        if (isFollowing(userId, id)) {
-            throw new RuntimeException("已经关注了该用户");
-        }
-        
-        userMapper.insertFollow(userId, id, 0);
-        userMapper.incrementFollowingCount(userId);
-        userMapper.incrementFollowerCount(id);
+        followService.follow(id, FollowService.TYPE_USER);
     }
 
     @Override
     public void unfollowUser(Long id) {
-        Long userId = BaseContext.getCurrentId();
-        
-        if (!isFollowing(userId, id)) {
-            throw new RuntimeException("未关注该用户");
-        }
-        
-        userMapper.deleteFollow(userId, id, 0);
-        userMapper.decrementFollowingCount(userId);
-        userMapper.decrementFollowerCount(id);
+        followService.unfollow(id, FollowService.TYPE_USER);
     }
 
     @Override
@@ -306,13 +284,31 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public boolean isFollowing(Long userId, Long targetId) {
-        Integer count = userMapper.checkFollow(userId, targetId, 0);
-        return count != null && count > 0;
+        return followService.isFollowing(userId, targetId, FollowService.TYPE_USER);
     }
 
     @Override
     public void kickUser(Long id) {
         stringRedisTemplate.delete(RedisConstant.USER_TOKEN_KEY + id);
         log.info("用户被踢下线: userId={}", id);
+    }
+
+    @Override
+    public Map<String, Object> getOnlineUserStats() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // 获取在线用户总数
+        long totalOnline = onlineStatusService.getOnlineUserCount();
+        stats.put("totalOnline", totalOnline);
+        
+        // 获取不同状态的在线用户数
+        Map<OnlineStatus, Long> statusCounts = onlineStatusService.getOnlineUserCountByStatus();
+        stats.put("statusCounts", statusCounts);
+        
+        // 获取最近登录的用户
+        List<UserVO> recentUsers = onlineStatusService.getRecentOnlineUsers(10);
+        stats.put("recentUsers", recentUsers);
+        
+        return stats;
     }
 }

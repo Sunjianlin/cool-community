@@ -16,5 +16,6 @@ public class Product extends BaseEntity {
     private String price;
     private String specs;
     private Integer reviewCount;
+    private Integer followCount;
     private Integer status;
 }

@@ -56,4 +56,11 @@ public class AdminUserController {
     public void kickUser(@Parameter(description = "用户ID") @PathVariable Long id) {
         userService.kickUser(id);
     }
+    
+    @Operation(summary = "在线用户统计", description = "获取在线用户统计信息", security = @SecurityRequirement(name = "Bearer"))
+    @RequireAdmin
+    @GetMapping("/online-stats")
+    public java.util.Map<String, Object> getOnlineUserStats() {
+        return userService.getOnlineUserStats();
+    }
 }

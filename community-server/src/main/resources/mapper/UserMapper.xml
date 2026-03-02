@@ -8,6 +8,9 @@
             <if test="status != null">
                 AND status = #{status}
             </if>
+            <if test="role != null">
+                AND role = #{role}
+            </if>
             <if test="keyword != null and keyword != ''">
                 AND (username LIKE CONCAT('%', #{keyword}, '%') OR nickname LIKE CONCAT('%', #{keyword}, '%'))
             </if>
@@ -20,6 +23,9 @@
         FROM user WHERE deleted = 0
         <if test="status != null">
             AND status = #{status}
+        </if>
+        <if test="role != null">
+            AND role = #{role}
         </if>
         <if test="keyword != null and keyword != ''">
             AND (username LIKE CONCAT('%', #{keyword}, '%') OR nickname LIKE CONCAT('%', #{keyword}, '%'))
@@ -43,6 +49,15 @@
         LEFT JOIN user u ON f.user_id = u.id
         WHERE f.follow_id = #{userId} AND f.type = 0 AND f.deleted = 0 AND u.deleted = 0
         ORDER BY f.create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="getRecommendedUsers" resultType="com.cool.pojo.vo.UserVO">
+        SELECT id, username, nickname, avatar, bio, follower_count, following_count, post_count
+        FROM user 
+        WHERE id != #{userId} AND deleted = 0 
+        AND id NOT IN (SELECT follow_id FROM follow WHERE user_id = #{userId} AND type = 0 AND deleted = 0)
+        ORDER BY follower_count DESC, create_time DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 

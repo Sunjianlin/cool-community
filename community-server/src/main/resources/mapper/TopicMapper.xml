@@ -58,4 +58,13 @@
         FROM topic WHERE id = #{id} AND deleted = 0
     </select>
 
+    <select id="getRecommendedTopics" resultType="com.cool.pojo.vo.TopicVO">
+        SELECT id, name, description, icon, cover, category, follow_count, post_count, is_hot
+        FROM topic 
+        WHERE deleted = 0 
+        AND id NOT IN (SELECT follow_id FROM follow WHERE user_id = #{userId} AND type = 1 AND deleted = 0)
+        ORDER BY follow_count DESC, post_count DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
 </mapper>

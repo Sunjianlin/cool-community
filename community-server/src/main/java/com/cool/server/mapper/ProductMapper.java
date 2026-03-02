@@ -38,4 +38,15 @@ public interface ProductMapper {
     List<ProductVO> list(PageQueryDTO dto);
 
     ProductVO getDetailById(Long id);
+
+    @Update("UPDATE product SET follow_count = follow_count + 1 WHERE id = #{id}")
+    void incrementFollowCount(Long id);
+
+    @Update("UPDATE product SET follow_count = follow_count - 1 WHERE id = #{id}")
+    void decrementFollowCount(Long id);
+
+    List<ProductVO> getRecommendedProducts(@Param("offset") int offset, @Param("pageSize") int pageSize);
+
+    @Select("SELECT COUNT(*) FROM product WHERE deleted = 0")
+    Long countRecommendedProducts();
 }

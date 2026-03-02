@@ -9,10 +9,13 @@ import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.TopicVO;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.TopicMapper;
+import com.cool.server.service.FollowService;
 import com.cool.server.service.TopicService;
 import cn.hutool.core.bean.BeanUtil;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+
+
 import java.util.List;
 
 @Service
@@ -20,10 +23,12 @@ public class TopicServiceImpl implements TopicService {
     
     private final TopicMapper topicMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final FollowService followService;
 
-    public TopicServiceImpl(TopicMapper topicMapper, StringRedisTemplate stringRedisTemplate) {
+    public TopicServiceImpl(TopicMapper topicMapper, StringRedisTemplate stringRedisTemplate, FollowService followService) {
         this.topicMapper = topicMapper;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.followService = followService;
     }
 
     @Override
@@ -94,9 +99,8 @@ public class TopicServiceImpl implements TopicService {
         
         Long userId = BaseContext.getCurrentId();
         if (userId != null) {
-            String key = RedisConstant.TOPIC_FOLLOW_KEY + id + ":" + userId;
-            String isFollowed = stringRedisTemplate.opsForValue().get(key);
-            topic.setIsFollowed(isFollowed != null);
+            boolean isFollowed = followService.isFollowing(userId, id, FollowService.TYPE_TOPIC);
+            topic.setIsFollowed(isFollowed);
         }
         
         return topic;
@@ -104,18 +108,12 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     public void followTopic(Long id) {
-        Long userId = BaseContext.getCurrentId();
-        String key = RedisConstant.TOPIC_FOLLOW_KEY + id + ":" + userId;
-        stringRedisTemplate.opsForValue().set(key, "1");
-        topicMapper.incrementFollowCount(id);
+        followService.follow(id, FollowService.TYPE_TOPIC);
     }
 
     @Override
     public void unfollowTopic(Long id) {
-        Long userId = BaseContext.getCurrentId();
-        String key = RedisConstant.TOPIC_FOLLOW_KEY + id + ":" + userId;
-        stringRedisTemplate.delete(key);
-        topicMapper.decrementFollowCount(id);
+        followService.unfollow(id, FollowService.TYPE_TOPIC);
     }
 
     @Override

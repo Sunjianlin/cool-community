@@ -3,6 +3,7 @@ package com.cool.server.mapper;
 import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.entity.Post;
 import com.cool.pojo.vo.PostVO;
+import jakarta.validation.constraints.NotNull;
 import org.apache.ibatis.annotations.*;
 import java.util.List;
 
@@ -54,4 +55,7 @@ public interface PostMapper {
     List<PostVO> list(PageQueryDTO dto);
 
     PostVO getDetailById(Long id);
+
+    @Update("update post SET comment_count=comment_count+1 where id=#{postId}")
+    void addComment(@NotNull(message = "帖子ID不能为空") Long postId);
 }

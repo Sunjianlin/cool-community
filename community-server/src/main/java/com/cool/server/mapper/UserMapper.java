@@ -75,4 +75,12 @@ public interface UserMapper {
     
     @Select("SELECT follower_count FROM user WHERE id = #{userId}")
     Long getFollowerCount(Long userId);
+
+    List<UserVO> getRecommendedUsers(@Param("userId") Long userId, @Param("offset") int offset, @Param("pageSize") int pageSize);
+
+    @Select("SELECT COUNT(*) FROM user WHERE id != #{userId} AND deleted = 0 AND id NOT IN (SELECT follow_id FROM follow WHERE user_id = #{userId} AND type = 0 AND deleted = 0)")
+    Long countRecommendedUsers(@Param("userId") Long userId);
+
+    @Update("UPDATE user SET post_count=post_count+1 where id=#{userId}")
+    void addPostCount(Long userId);
 }

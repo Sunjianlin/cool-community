@@ -13,6 +13,11 @@ public class RedisConstant {
     public static final String HOT_POST_KEY = "post:hot";
     public static final String VERIFY_CODE_KEY = "verify:code:";
     
+    // 关注相关常量
+    public static final String FOLLOW_KEY = "follow:";
+    public static final String FOLLOW_COUNT_KEY = "follow:count:";
+    public static final String FOLLOWER_COUNT_KEY = "follower:count:";
+    
     public static final long TOKEN_EXPIRE_TIME = 3 * 60 * 60;
     public static final long VERIFY_CODE_EXPIRE_TIME = 5 * 60;
 }

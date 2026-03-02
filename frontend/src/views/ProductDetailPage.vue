@@ -11,6 +11,18 @@
         <div class="stats">
           <span>{{ product.reviewCount || 0 }} 评测</span>
           <span v-if="product.avgRating">⭐ {{ product.avgRating.toFixed(1) }}</span>
+          <span>{{ product.followCount || 0 }} 关注</span>
+        </div>
+        <div class="action-buttons">
+          <button 
+            v-if="userStore.isLoggedIn" 
+            :class="['follow-button', { 'following': isFollowing }]"
+            @click="toggleFollow"
+            :disabled="loadingFollow"
+          >
+            {{ loadingFollow ? '处理中...' : (isFollowing ? '已关注' : '关注') }}
+          </button>
+          <router-link v-else to="/login" class="login-button">登录后关注</router-link>
         </div>
         <div v-if="product.specs" class="specs">
           <h3>规格配置</h3>
@@ -42,16 +54,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '../store/user'
 import productApi from '../api/productApi'
 import postApi from '../api/postApi'
+import followApi from '../api/followApi'
 
 const route = useRoute()
 const product = ref({})
 const posts = ref([])
 const loadingPosts = ref(false)
 const defaultImage = 'https://cube.elemecdn.com/e/fd/0/yz33e8pE6VUm0fHQyUb7Z5Th4i4.png'
+
+const userStore = useUserStore()
+const isFollowing = ref(false)
+const loadingFollow = ref(false)
 
 const updatePageTitle = () => {
   document.title = product.value.name ? `${product.value.name} - 酷安社区` : '产品详情 - 酷安社区'
@@ -84,8 +102,45 @@ const loadProduct = async () => {
     const response = await productApi.getProductDetail(route.params.id)
     product.value = response.data || {}
     updatePageTitle()
+    
+    // 检查关注状态
+    if (userStore.isLoggedIn) {
+      await checkFollowStatus()
+    }
   } catch (error) {
     console.error('加载产品失败:', error)
+  }
+}
+
+const checkFollowStatus = async () => {
+  try {
+    const response = await followApi.checkFollow(route.params.id, 2) // 2 表示产品类型
+    isFollowing.value = response.data || false
+  } catch (error) {
+    console.error('检查关注状态失败:', error)
+    isFollowing.value = false
+  }
+}
+
+const toggleFollow = async () => {
+  if (loadingFollow.value) return
+  
+  loadingFollow.value = true
+  try {
+    if (isFollowing.value) {
+      // 取消关注
+      await followApi.unfollowProduct(route.params.id)
+      product.value.followCount = Math.max(0, (product.value.followCount || 0) - 1)
+    } else {
+      // 关注
+      await followApi.followProduct(route.params.id)
+      product.value.followCount = (product.value.followCount || 0) + 1
+    }
+    isFollowing.value = !isFollowing.value
+  } catch (error) {
+    console.error('操作失败:', error)
+  } finally {
+    loadingFollow.value = false
   }
 }
 
@@ -192,6 +247,63 @@ onMounted(() => {
 .description {
   color: #666;
   line-height: 1.6;
+}
+
+.action-buttons {
+  margin: 20px 0;
+  display: flex;
+  gap: 12px;
+}
+
+.follow-button {
+  padding: 10px 24px;
+  border: 2px solid #007bff;
+  border-radius: 20px;
+  background: white;
+  color: #007bff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.follow-button:hover {
+  background: #007bff;
+  color: white;
+}
+
+.follow-button.following {
+  border-color: #28a745;
+  color: #28a745;
+}
+
+.follow-button.following:hover {
+  background: #28a745;
+  color: white;
+}
+
+.follow-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-button {
+  padding: 10px 24px;
+  border: 2px solid #6c757d;
+  border-radius: 20px;
+  background: white;
+  color: #6c757d;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: inline-block;
+  text-align: center;
+}
+
+.login-button:hover {
+  background: #6c757d;
+  color: white;
 }
 
 /* 相关帖子样式 */

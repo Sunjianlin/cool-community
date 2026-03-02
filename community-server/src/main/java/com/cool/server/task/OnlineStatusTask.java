@@ -16,8 +16,8 @@ public class OnlineStatusTask {
     @Autowired
     private OnlineStatusServiceImpl onlineStatusService;
     
-    // 每5秒检查一次心跳
-    @Scheduled(fixedRate = 5000)
+    // 每1分钟检查一次心跳
+    @Scheduled(fixedRate = 60000)
     public void checkHeartbeat() {
         try {
             log.debug("开始检查用户心跳状态");

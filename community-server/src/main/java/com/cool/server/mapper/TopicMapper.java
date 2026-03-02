@@ -48,4 +48,9 @@ public interface TopicMapper {
 
     @Update("UPDATE topic SET follow_count = follow_count - 1 WHERE id = #{id} AND follow_count > 0")
     void decrementFollowCount(Long id);
+
+    List<TopicVO> getRecommendedTopics(@Param("userId") Long userId, @Param("offset") int offset, @Param("pageSize") int pageSize);
+
+    @Select("SELECT COUNT(*) FROM topic WHERE deleted = 0 AND id NOT IN (SELECT follow_id FROM follow WHERE user_id = #{userId} AND type = 1 AND deleted = 0)")
+    Long countRecommendedTopics(@Param("userId") Long userId);
 }

@@ -23,7 +23,7 @@ public interface CommentMapper {
     @Select("SELECT COUNT(*) FROM comment WHERE post_id = #{postId} AND deleted = 0")
     Long countByPostId(Long postId);
 
-    List<CommentVO> listByPostId(@Param("postId") Long postId, PageQueryDTO pageQueryDTO);
+    List<CommentVO> listByPostId(@Param("postId") Long postId, @Param("dto") PageQueryDTO pageQueryDTO);
 
     @Update("UPDATE comment SET like_count = like_count + 1 WHERE id = #{id}")
     void incrementLikeCount(Long id);

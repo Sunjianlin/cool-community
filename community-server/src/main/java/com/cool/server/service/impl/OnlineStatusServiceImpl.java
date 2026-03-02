@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.cool.server.mapper.UserMapper;
+import com.cool.pojo.vo.UserVO;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -24,12 +26,15 @@ public class OnlineStatusServiceImpl implements OnlineStatusService {
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
     
+    @Autowired
+    private UserMapper userMapper;
+    
     // Redis键前缀
     private static final String ONLINE_STATUS_PREFIX = "user:online:status:";
     private static final String ONLINE_USER_SET = "user:online:set";
     
     // 心跳超时时间（秒）
-    private static final int HEARTBEAT_TIMEOUT = 30;
+    private static final int HEARTBEAT_TIMEOUT = 65;
     
     // 日期时间格式化器
     private static final DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE_TIME;
@@ -183,6 +188,76 @@ public class OnlineStatusServiceImpl implements OnlineStatusService {
             }
         } catch (Exception e) {
             log.error("检查用户心跳失败: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public long getOnlineUserCount() {
+        try {
+            List<Long> onlineUsers = getOnlineUsers();
+            return onlineUsers.size();
+        } catch (Exception e) {
+            log.error("获取在线用户总数失败: {}", e.getMessage());
+            return 0;
+        }
+    }
+
+    @Override
+    public java.util.Map<OnlineStatus, Long> getOnlineUserCountByStatus() {
+        try {
+            List<Long> onlineUsers = getOnlineUsers();
+            java.util.Map<OnlineStatus, Long> statusCounts = new java.util.HashMap<>();
+            
+            for (Long userId : onlineUsers) {
+                OnlineStatus status = getStatus(userId);
+                statusCounts.put(status, statusCounts.getOrDefault(status, 0L) + 1);
+            }
+            
+            return statusCounts;
+        } catch (Exception e) {
+            log.error("获取在线用户状态分布失败: {}", e.getMessage());
+            return new java.util.HashMap<>();
+        }
+    }
+
+    @Override
+    public java.util.List<com.cool.pojo.vo.UserVO> getRecentOnlineUsers(int limit) {
+        try {
+            List<Long> onlineUsers = getOnlineUsers();
+            java.util.List<com.cool.pojo.vo.UserVO> recentUsers = new java.util.ArrayList<>();
+            
+            for (Long userId : onlineUsers) {
+                try {
+                    com.cool.pojo.entity.User user = userMapper.getById(userId);
+                    if (user != null) {
+                        com.cool.pojo.vo.UserVO userVO = new com.cool.pojo.vo.UserVO();
+                        userVO.setId(user.getId());
+                        userVO.setUsername(user.getUsername());
+                        userVO.setNickname(user.getNickname());
+                        userVO.setAvatar(user.getAvatar());
+                        userVO.setEmail(user.getEmail());
+                        userVO.setPhone(user.getPhone());
+                        userVO.setBio(user.getBio());
+                        userVO.setGender(user.getGender());
+                        userVO.setStatus(user.getStatus());
+                        userVO.setRole(user.getRole());
+                        userVO.setFollowingCount(userMapper.getFollowingCount(userId));
+                        userVO.setFollowerCount(userMapper.getFollowerCount(userId));
+                        recentUsers.add(userVO);
+                    }
+                } catch (Exception e) {
+                    log.error("获取用户信息失败: {}", e.getMessage());
+                }
+                
+                if (recentUsers.size() >= limit) {
+                    break;
+                }
+            }
+            
+            return recentUsers;
+        } catch (Exception e) {
+            log.error("获取最近在线用户失败: {}", e.getMessage());
+            return new java.util.ArrayList<>();
         }
     }
 }

@@ -16,6 +16,7 @@ public class PageQueryDTO {
     private String category;
     private String brand;
     private Integer status;
+    private Integer role;
     private Integer offset;
 
     public Integer getOffset() {

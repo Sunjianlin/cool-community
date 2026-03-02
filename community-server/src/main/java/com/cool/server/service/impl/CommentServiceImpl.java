@@ -8,8 +8,10 @@ import com.cool.pojo.vo.CommentVO;
 import com.cool.pojo.vo.PageVO;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.CommentMapper;
+import com.cool.server.mapper.PostMapper;
 import com.cool.server.service.CommentService;
 import cn.hutool.core.bean.BeanUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -19,6 +21,9 @@ public class CommentServiceImpl implements CommentService {
     
     private final CommentMapper commentMapper;
     private final StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private PostMapper postMapper;
 
     public CommentServiceImpl(CommentMapper commentMapper, StringRedisTemplate stringRedisTemplate) {
         this.commentMapper = commentMapper;
@@ -34,6 +39,8 @@ public class CommentServiceImpl implements CommentService {
         comment.setUserId(userId);
         comment.setLikeCount(0);
         comment.setStatus(1);
+
+        postMapper.addComment(dto.getPostId());
         
         commentMapper.insert(comment);
         return comment.getId();

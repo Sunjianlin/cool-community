@@ -91,6 +91,10 @@ const adminApi = {
   
   getDashboardStats: () => {
     return axios.get('/admin/dashboard/stats')
+  },
+  
+  getOnlineUserStats: () => {
+    return axios.get('/admin/user/online-stats')
   }
 }
 

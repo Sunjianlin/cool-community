@@ -76,7 +76,7 @@
               <span v-if="post.topicName" class="topic-tag">{{ post.topicName }}</span>
             </div>
             <h4 class="post-title">{{ post.title }}</h4>
-            <p class="post-content">{{ truncate(post.content, 150) }}</p>
+            <p class="post-content">{{ truncateWithStripHtml(post.content, 150) }}</p>
             <div class="post-stats">
               <span>{{ post.likeCount || 0 }} 赞</span>
               <span>{{ post.commentCount || 0 }} 评论</span>
@@ -96,6 +96,7 @@ import { useUserStore } from '../store/user'
 import topicApi from '../api/topicApi'
 import postApi from '../api/postApi'
 import productApi from '../api/productApi'
+import { truncateWithStripHtml } from '../utils/textUtils'
 
 const carouselItems = ref([])
 const hotProducts = ref([])
@@ -171,10 +172,7 @@ const formatDate = (dateStr) => {
   return date.toLocaleDateString('zh-CN')
 }
 
-const truncate = (text, length) => {
-  if (!text) return ''
-  return text.length > length ? text.substring(0, length) + '...' : text
-}
+
 
 const startCarousel = () => {
   stopCarousel()

@@ -59,4 +59,15 @@
         WHERE p.id = #{id} AND p.deleted = 0
     </select>
 
+    <select id="getRecommendedProducts" resultType="com.cool.pojo.vo.ProductVO">
+        SELECT p.id, p.name, p.description, p.image, p.brand, p.category_id, p.price, p.specs, p.review_count, p.follow_count,
+               pc.name as categoryName,
+               (SELECT AVG(rating) FROM product_review WHERE product_id = p.id AND deleted = 0) as avgRating
+        FROM product p
+        LEFT JOIN product_category pc ON p.category_id = pc.id
+        WHERE p.deleted = 0
+        ORDER BY p.review_count DESC, p.follow_count DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
 </mapper>

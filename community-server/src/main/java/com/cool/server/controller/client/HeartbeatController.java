@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Tag(name = "心跳接口", description = "用户心跳检测")
 @RestController
-@RequestMapping("/api/heartbeat")
+@RequestMapping("/heartbeat")
 public class HeartbeatController {
     
     @Autowired

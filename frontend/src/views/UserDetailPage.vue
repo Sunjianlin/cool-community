@@ -79,7 +79,7 @@
               {{ getStatusName(post.status) }}
             </span>
           </div>
-          <p>{{ truncate(post.content, 100) }}</p>
+          <p>{{ truncateWithStripHtml(post.content, 100) }}</p>
           <div class="post-meta">
             <span>{{ formatDate(post.createTime) }}</span>
             <span>{{ post.likeCount || 0 }} 赞</span>
@@ -201,6 +201,7 @@ import { useUserStore } from '../store/user'
 import userApi from '../api/userApi'
 import postApi from '../api/postApi'
 import { ElMessage } from 'element-plus'
+import { truncateWithStripHtml } from '../utils/textUtils'
 
 const route = useRoute()
 const router = useRouter()
@@ -422,10 +423,7 @@ const formatDate = (time) => {
   return time.split(' ')[0]
 }
 
-const truncate = (text, length) => {
-  if (!text) return ''
-  return text.length > length ? text.substring(0, length) + '...' : text
-}
+
 
 const getStatusClass = (status) => {
   switch (status) {

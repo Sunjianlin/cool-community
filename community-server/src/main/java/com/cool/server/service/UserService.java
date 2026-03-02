@@ -7,6 +7,7 @@ import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.UserLoginVO;
 import com.cool.pojo.vo.UserVO;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.Map;
 
 public interface UserService {
     
@@ -43,4 +44,6 @@ public interface UserService {
     boolean isFollowing(Long userId, Long targetId);
     
     void kickUser(Long id);
+    
+    Map<String, Object> getOnlineUserStats();
 }

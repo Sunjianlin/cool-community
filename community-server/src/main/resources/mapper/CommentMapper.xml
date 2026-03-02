@@ -10,7 +10,7 @@
         LEFT JOIN user ru ON c.reply_user_id = ru.id
         WHERE c.post_id = #{postId} AND c.deleted = 0
         ORDER BY c.create_time DESC
-        LIMIT #{pageSize} OFFSET #{offset}
+        LIMIT #{dto.pageSize} OFFSET #{dto.offset}
     </select>
 
 </mapper>
