@@ -14,7 +14,7 @@ import java.util.List;
 
 @Tag(name = "在线状态接口", description = "用户在线状态管理")
 @RestController
-@RequestMapping("/api/online-status")
+@RequestMapping("/online-status")
 public class OnlineStatusController {
     
     @Autowired

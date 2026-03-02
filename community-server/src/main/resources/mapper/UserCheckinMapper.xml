@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.UserCheckinMapper">
+
+    <select id="selectByUserIdAndDate" resultType="com.cool.pojo.entity.UserCheckin">
+        SELECT * FROM user_checkin WHERE user_id = #{userId} AND checkin_date = #{checkinDate}
+    </select>
+
+    <insert id="insert" parameterType="com.cool.pojo.entity.UserCheckin">
+        INSERT INTO user_checkin (user_id, checkin_date, created_at)
+        VALUES (#{userId}, #{checkinDate}, NOW())
+    </insert>
+
+    <select id="countConsecutiveCheckins" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM (
+            SELECT checkin_date,
+                   DATEDIFF(checkin_date, '1970-01-01') - ROW_NUMBER() OVER (ORDER BY checkin_date) AS grp
+            FROM user_checkin
+            WHERE user_id = #{userId}
+            ORDER BY checkin_date DESC
+        ) t
+        WHERE grp = (SELECT DATEDIFF(MAX(checkin_date), '1970-01-01') - 1
+                     FROM user_checkin
+                     WHERE user_id = #{userId})
+    </select>
+
+</mapper>

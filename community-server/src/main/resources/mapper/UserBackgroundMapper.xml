@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.UserBackgroundMapper">
+    
+    <insert id="insert" parameterType="com.cool.pojo.entity.UserBackground">
+        INSERT INTO user_background (
+            user_id, background_image, is_current, acquire_time, create_time
+        ) VALUES (
+            #{userId}, #{backgroundImage}, #{isCurrent}, #{acquireTime}, #{createTime}
+        )
+    </insert>
+    
+    <select id="selectByUserId" resultType="com.cool.pojo.entity.UserBackground">
+        SELECT * FROM user_background WHERE user_id = #{userId} ORDER BY create_time DESC
+    </select>
+    
+    <select id="selectCurrentByUserId" resultType="com.cool.pojo.entity.UserBackground">
+        SELECT * FROM user_background WHERE user_id = #{userId} AND is_current = 1
+    </select>
+    
+    <update id="updateAllToNonCurrent">
+        UPDATE user_background SET is_current = 0 WHERE user_id = #{userId}
+    </update>
+    
+    <update id="updateToCurrent">
+        UPDATE user_background SET is_current = 1 WHERE id = #{id} AND user_id = #{userId}
+    </update>
+</mapper>

@@ -20,6 +20,9 @@ import ProfilePage from './views/ProfilePage.vue'
 import CreatePostPage from './views/CreatePostPage.vue'
 import UserDetailPage from './views/UserDetailPage.vue'
 import ChatPage from './views/ChatPage.vue'
+import SeckillPage from './views/SeckillPage.vue'
+import BackgroundManagementPage from './views/BackgroundManagementPage.vue'
+import ActivitiesPage from './views/ActivitiesPage.vue'
 import './style.css'
 
 const routes = [
@@ -34,7 +37,10 @@ const routes = [
   { path: '/admin', component: AdminPage, meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/user/:id', component: UserDetailPage, meta: { requiresAuth: true } },
   { path: '/create-post', component: CreatePostPage, meta: { requiresAuth: true } },
-  { path: '/chat', component: ChatPage, meta: { requiresAuth: true } }
+  { path: '/chat', component: ChatPage, meta: { requiresAuth: true } },
+  { path: '/activities', component: ActivitiesPage, meta: { requiresAuth: true } },
+  { path: '/seckill/:id', component: SeckillPage, meta: { requiresAuth: true } },
+  { path: '/profile/background', component: BackgroundManagementPage, meta: { requiresAuth: true } }
 ]
 
 // 先初始化用户状态，再处理路由守卫

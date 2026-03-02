@@ -5,6 +5,7 @@
         <div class="top-nav-left">
           <a href="/" class="top-nav-logo" @click.prevent="navigateTo('/')">CoolCommunity</a>
           <nav class="nav">
+            <a href="/activities" class="nav-item" :class="{ active: $route.path === '/activities' }" @click.prevent="navigateTo('/activities')">活动</a>
             <a href="/" class="nav-item" :class="{ active: $route.path === '/' }" @click.prevent="navigateTo('/')">首页</a>
             <a href="/topics" class="nav-item" :class="{ active: $route.path === '/topics' }" @click.prevent="navigateTo('/topics')">话题</a>
             <a href="/products" class="nav-item" :class="{ active: $route.path === '/products' }" @click.prevent="navigateTo('/products')">产品</a>
@@ -19,6 +20,13 @@
         </div>
         <div class="top-nav-right">
           <router-link to="/create-post" class="btn btn-primary" v-if="userStore.isLoggedIn">发帖</router-link>
+          <button class="btn btn-secondary" v-if="userStore.isLoggedIn" @click="handleCheckin" :class="{ 'checked-in': hasCheckedInToday }">
+            {{ hasCheckedInToday ? '已签到' : '签到' }}
+          </button>
+          <div class="points-display" v-if="userStore.isLoggedIn">
+            <span class="points-icon">🎁</span>
+            <span class="points-count">{{ userPoints }}</span>
+          </div>
           <template v-if="userStore.isLoggedIn">
             <!-- 私信入口 -->
             <router-link to="/chat" class="message-icon-wrapper">
@@ -82,6 +90,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from './store/user'
 import { useChatStore } from './store/chat'
 import heartbeatService from './services/heartbeatService'
+import checkinApi from './api/checkinApi'
+import pointsApi from './api/pointsApi'
 
 const router = useRouter()
 const route = useRoute()
@@ -90,6 +100,10 @@ const chatStore = useChatStore()
 const searchKeyword = ref('')
 let tokenValidationInterval = null
 let messageCheckInterval = null
+
+// 签到相关状态
+const hasCheckedInToday = ref(false)
+const userPoints = ref(0)
 
 const isAdmin = computed(() => {
   return userStore.isAdmin
@@ -125,6 +139,59 @@ const editProfile = () => {
   }
 }
 
+// 处理签到
+const handleCheckin = async () => {
+  if (!userStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+  
+  try {
+    const response = await checkinApi.checkin(userStore.user.id)
+    if (response.code === 200) {
+      const pointsEarned = response.data
+      if (pointsEarned > 0) {
+        ElMessage.success(`签到成功！获得 ${pointsEarned} 积分`)
+        hasCheckedInToday.value = true
+        userPoints.value += pointsEarned
+      } else {
+        ElMessage.info('您今天已经签到过了')
+      }
+    }
+  } catch (error) {
+    console.error('签到失败:', error)
+    ElMessage.error('签到失败，请稍后重试')
+  }
+}
+
+// 检查签到状态
+const checkCheckinStatus = async () => {
+  if (!userStore.isLoggedIn) return
+  
+  try {
+    const response = await checkinApi.hasCheckedInToday(userStore.user.id)
+    if (response.code === 200) {
+      hasCheckedInToday.value = response.data
+    }
+  } catch (error) {
+    console.error('检查签到状态失败:', error)
+  }
+}
+
+// 获取用户积分
+const getUserPoints = async () => {
+  if (!userStore.isLoggedIn) return
+  
+  try {
+    const response = await pointsApi.getUserPoints(userStore.user.id)
+    if (response.code === 200) {
+      userPoints.value = response.data
+    }
+  } catch (error) {
+    console.error('获取用户积分失败:', error)
+  }
+}
+
 const startTokenValidation = () => {
   // 每30秒验证一次token的有效性
   tokenValidationInterval = setInterval(async () => {
@@ -156,10 +223,16 @@ watch(
       // 用户登录后启动心跳服务
       heartbeatService.start()
       console.log('用户登录，启动心跳服务')
+      // 检查签到状态和获取积分
+      checkCheckinStatus()
+      getUserPoints()
     } else {
       // 用户登出后停止心跳服务
       heartbeatService.stop()
       console.log('用户登出，停止心跳服务')
+      // 重置状态
+      hasCheckedInToday.value = false
+      userPoints.value = 0
     }
   },
   { immediate: true }
@@ -174,6 +247,9 @@ onMounted(async () => {
   // 如果用户已登录，启动心跳服务
   if (userStore.isLoggedIn) {
     heartbeatService.start()
+    // 检查签到状态和获取积分
+    checkCheckinStatus()
+    getUserPoints()
   }
 })
 

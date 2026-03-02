@@ -256,6 +256,39 @@
       </el-table>
     </div>
     
+    <div v-if="currentNav === 'seckill'" class="admin-section">
+      <div class="section-header">
+        <h3 class="section-title">秒杀管理</h3>
+        <button class="btn btn-primary" @click="showSeckillDialog()">添加秒杀活动</button>
+      </div>
+      
+      <el-table :data="seckillActivities" style="width: 100%" v-loading="loading.seckill">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="activityName" label="活动名称" width="150" />
+        <el-table-column prop="startTime" label="开始时间" width="200" />
+        <el-table-column prop="endTime" label="结束时间" width="200" />
+        <el-table-column label="背景图" width="120">
+          <template #default="scope">
+            <img v-if="scope.row.backgroundImage" :src="scope.row.backgroundImage" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;" />
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="scope">
+            <el-tag v-if="scope.row.status === 1" type="success" size="small">进行中</el-tag>
+            <el-tag v-else-if="scope.row.status === 2" type="info" size="small">已结束</el-tag>
+            <el-tag v-else type="warning" size="small">未开始</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180">
+          <template #default="scope">
+            <el-button size="small" @click="showSeckillDialog(scope.row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="deleteSeckillItem(scope.row.id)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+    
     <el-dialog v-model="topicDialogVisible" :title="editingTopic.id ? '编辑话题' : '添加话题'" width="500px">
       <el-form :model="editingTopic" label-width="80px">
         <el-form-item label="名称">
@@ -343,6 +376,49 @@
         <el-button type="primary" @click="saveBrand" :loading="saving">保存</el-button>
       </template>
     </el-dialog>
+    
+    <el-dialog v-model="seckillDialogVisible" :title="editingSeckill.id ? '编辑秒杀活动' : '添加秒杀活动'" width="500px">
+      <el-form :model="editingSeckill" label-width="80px">
+        <el-form-item label="活动名称">
+          <el-input v-model="editingSeckill.activityName" placeholder="活动名称" />
+        </el-form-item>
+        <el-form-item label="开始时间">
+          <el-date-picker
+            v-model="editingSeckill.startTime"
+            type="datetime"
+            placeholder="选择开始时间"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="结束时间">
+          <el-date-picker
+            v-model="editingSeckill.endTime"
+            type="datetime"
+            placeholder="选择结束时间"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="背景图">
+          <el-upload
+            class="avatar-uploader"
+            :auto-upload="false"
+            :on-change="handleSeckillBackgroundChange"
+            :show-file-list="false"
+            :before-upload="beforeUpload"
+          >
+            <img v-if="editingSeckill.backgroundImage" :src="editingSeckill.backgroundImage" class="avatar-preview" />
+            <el-icon v-else class="upload-icon"><Plus /></el-icon>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="库存">
+          <el-input v-model="editingSeckill.stock" type="number" placeholder="库存数量" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="seckillDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveSeckill" :loading="saving">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -355,6 +431,7 @@ import topicApi from '../api/topicApi'
 import productApi from '../api/productApi'
 import brandApi from '../api/brandApi'
 import categoryApi from '../api/categoryApi'
+import seckillApi from '../api/seckillApi'
 
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 const defaultProductImage = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
@@ -364,7 +441,8 @@ const navItems = ref([
   { id: 'products', name: '产品管理' },
   { id: 'brands', name: '品牌管理' },
   { id: 'users', name: '用户管理' },
-  { id: 'posts', name: '帖子管理' }
+  { id: 'posts', name: '帖子管理' },
+  { id: 'seckill', name: '秒杀管理' }
 ])
 
 const currentNav = ref('topics')
@@ -376,22 +454,26 @@ const users = ref([])
 const posts = ref([])
 const categories = ref([])
 const topicCategories = ref([])
+const seckillActivities = ref([])
 
 const topicDialogVisible = ref(false)
 const productDialogVisible = ref(false)
 const brandDialogVisible = ref(false)
+const seckillDialogVisible = ref(false)
 const saving = ref(false)
 const loading = ref({
   topics: false,
   products: false,
   brands: false,
   users: false,
-  posts: false
+  posts: false,
+  seckill: false
 })
 
 const editingTopic = ref({ id: null, name: '', description: '', category: '' })
 const editingProduct = ref({ id: null, name: '', description: '', price: '', image: '', brand: '', categoryId: '' })
 const editingBrand = ref({ id: null, name: '', logo: '' })
+const editingSeckill = ref({ id: null, activityName: '', startTime: '', endTime: '', backgroundImage: '', stock: 0 })
 
 const topicFilter = ref({ keyword: '' })
 const productFilter = ref({ categoryId: '', keyword: '' })
@@ -811,6 +893,93 @@ const deletePostItem = async (id) => {
   }
 }
 
+const loadSeckillActivities = async () => {
+  loading.value.seckill = true
+  try {
+    const response = await seckillApi.getSeckillList()
+    seckillActivities.value = response.data || []
+  } catch (error) {
+    console.error('加载秒杀活动失败:', error)
+  } finally {
+    loading.value.seckill = false
+  }
+}
+
+const showSeckillDialog = (seckill = null) => {
+  if (seckill) {
+    editingSeckill.value = { ...seckill }
+  } else {
+    editingSeckill.value = { id: null, activityName: '', startTime: '', endTime: '', backgroundImage: '', stock: 0 }
+  }
+  seckillDialogVisible.value = true
+}
+
+const handleSeckillBackgroundChange = async (file) => {
+  try {
+    const response = await seckillApi.uploadBackgroundImage(file.raw)
+    if (response.code === 200) {
+      editingSeckill.value.backgroundImage = response.data
+      ElMessage.success('背景图上传成功')
+    } else {
+      ElMessage.error(response.message || '背景图上传失败')
+    }
+  } catch (error) {
+    console.error('上传背景图失败:', error)
+    ElMessage.error('上传失败')
+  }
+}
+
+const saveSeckill = async () => {
+  if (!editingSeckill.value.activityName) {
+    ElMessage.warning('请输入活动名称')
+    return
+  }
+  if (!editingSeckill.value.startTime) {
+    ElMessage.warning('请选择开始时间')
+    return
+  }
+  if (!editingSeckill.value.endTime) {
+    ElMessage.warning('请选择结束时间')
+    return
+  }
+  if (!editingSeckill.value.backgroundImage) {
+    ElMessage.warning('请上传背景图')
+    return
+  }
+  if (!editingSeckill.value.stock || editingSeckill.value.stock <= 0) {
+    ElMessage.warning('请输入有效的库存数量')
+    return
+  }
+  saving.value = true
+  try {
+    if (editingSeckill.value.id) {
+      await seckillApi.updateSeckill(editingSeckill.value)
+      ElMessage.success('秒杀活动更新成功')
+    } else {
+      await seckillApi.createSeckill(editingSeckill.value)
+      ElMessage.success('秒杀活动添加成功')
+    }
+    seckillDialogVisible.value = false
+    loadSeckillActivities()
+  } catch (error) {
+    console.error('保存秒杀活动失败:', error)
+    ElMessage.error('操作失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const deleteSeckillItem = async (id) => {
+  try {
+    await seckillApi.deleteSeckill(id)
+    ElMessage.success('秒杀活动删除成功')
+    loadSeckillActivities()
+  } catch (error) {
+    console.error('删除秒杀活动失败:', error)
+    ElMessage.error('删除失败')
+  }
+}
+
 const getStatusName = (status) => {
   const statusMap = {
     'ONLINE': '在线',
@@ -834,6 +1003,7 @@ onMounted(() => {
   loadUsers()
   loadPosts()
   loadOnlineStats()
+  loadSeckillActivities()
 })
 </script>
 

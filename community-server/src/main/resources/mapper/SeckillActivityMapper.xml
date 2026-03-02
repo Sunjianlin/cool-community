@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.SeckillActivityMapper">
+    
+    <select id="selectById" resultType="com.cool.pojo.entity.SeckillActivity">
+        SELECT * FROM seckill_activity WHERE id = #{id}
+    </select>
+    
+    <select id="selectByDate" resultType="com.cool.pojo.entity.SeckillActivity">
+        SELECT * FROM seckill_activity 
+        WHERE DATE(start_time) = #{date} AND status != 3
+    </select>
+    
+    <select id="selectNextDayActivity" resultType="com.cool.pojo.entity.SeckillActivity">
+        SELECT * FROM seckill_activity 
+        WHERE DATE(start_time) = DATE_ADD(CURDATE(), INTERVAL 1 DAY) 
+        AND status != 3
+        LIMIT 1
+    </select>
+    
+    <insert id="insert" parameterType="com.cool.pojo.entity.SeckillActivity">
+        INSERT INTO seckill_activity (
+            activity_name, background_image, start_time, end_time, 
+            stock, status, create_time, update_time
+        ) VALUES (
+            #{activityName}, #{backgroundImage}, #{startTime}, #{endTime}, 
+            #{stock}, #{status}, #{createTime}, #{updateTime}
+        )
+    </insert>
+    
+    <update id="update" parameterType="com.cool.pojo.entity.SeckillActivity">
+        UPDATE seckill_activity SET
+            activity_name = #{activityName},
+            background_image = #{backgroundImage},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            stock = #{stock},
+            status = #{status},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+    
+    <delete id="delete">
+        DELETE FROM seckill_activity WHERE id = #{id}
+    </delete>
+    
+    <select id="list" resultType="com.cool.pojo.entity.SeckillActivity">
+        SELECT * FROM seckill_activity ORDER BY create_time DESC
+    </select>
+</mapper>

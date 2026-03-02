@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cool.server.mapper.UserPointsMapper">
+
+    <select id="selectByUserId" resultType="com.cool.pojo.entity.UserPoints">
+        SELECT * FROM user_points WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert" parameterType="com.cool.pojo.entity.UserPoints">
+        INSERT INTO user_points (user_id, points, type, description,  created_at)
+        VALUES (#{userId}, #{points}, #{type}, #{description}, NOW())
+    </insert>
+
+    <update id="updatePoints">
+        UPDATE user_points SET points = #{points}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="addPoints">
+        UPDATE user_points SET points = points + #{points}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="reducePoints">
+        UPDATE user_points SET points = points - #{points}
+        WHERE user_id = #{userId} AND points >= #{points}
+    </update>
+
+    <insert id="insertPointsRecord" parameterType="com.cool.pojo.entity.UserPoints">
+        INSERT INTO user_points (user_id, points, type, description,  created_at)
+        VALUES (#{userId}, #{points}, #{type}, #{description},  NOW())
+    </insert>
+
+</mapper>
