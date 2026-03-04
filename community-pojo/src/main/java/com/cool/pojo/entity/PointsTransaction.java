@@ -5,13 +5,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 用户积分实体类
+ * 积分明细实体类
  */
 @Data
-public class UserPoints  {
-
+public class PointsTransaction {
+    private Long id;
     private Long userId;
     private Integer points;
-    private Integer version;
-    private LocalDateTime updateAt;
+    private Integer type;
+    private LocalDateTime createAt;
 }

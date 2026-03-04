@@ -23,9 +23,8 @@ public class UserCheckinController {
     private UserCheckinService userCheckinService;
 
     @Operation(summary = "检查用户今天是否已签到", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/{userId}/status")
-    public Result<Boolean> hasCheckedInToday(
-            @Parameter(description = "用户ID") @PathVariable Long userId) {
+    @GetMapping("/status")
+    public Result<Boolean> hasCheckedInToday() {
         boolean checkedIn = userCheckinService.hasCheckedInToday();
         return Result.success(checkedIn);
     }
@@ -38,14 +37,14 @@ public class UserCheckinController {
     }
 
     @Operation(summary = "获取用户连续签到天数", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/consecutive/{userId}")
+    @GetMapping("/consecutive")
     public Result<Integer> getConsecutiveCheckinDays() {
         int days = userCheckinService.getConsecutiveCheckinDays();
         return Result.success(days);
     }
 
     @Operation(summary = "检查用户在指定日期是否签到", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/date/{userId}")
+    @GetMapping("/date")
     public Result<Boolean> hasCheckedInOnDate(
             @Parameter(description = "日期，格式：YYYY-MM-DD") @RequestParam String date) {
         LocalDate checkinDate = LocalDate.parse(date);

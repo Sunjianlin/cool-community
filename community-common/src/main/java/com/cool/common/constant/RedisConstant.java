@@ -19,5 +19,6 @@ public class RedisConstant {
     public static final String FOLLOWER_COUNT_KEY = "follower:count:";
     
     public static final long TOKEN_EXPIRE_TIME = 3 * 60 * 60;
+    public static final long REFRESH_TOKEN_EXPIRE_TIME = 7 * 24 * 60 * 60;
     public static final long VERIFY_CODE_EXPIRE_TIME = 5 * 60;
 }

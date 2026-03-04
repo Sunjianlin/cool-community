@@ -1,6 +1,8 @@
 package com.cool.server.service.impl;
 
 import com.cool.pojo.entity.UserPoints;
+import com.cool.pojo.entity.PointsTransaction;
+import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.UserPointsMapper;
 import com.cool.server.service.UserPointsService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,10 +19,11 @@ public class UserPointsServiceImpl implements UserPointsService {
     private UserPointsMapper userPointsMapper;
 
     @Override
-    public Integer getUserPoints(Long userId) {
+    public Integer getUserPoints() {
+        Long userId = BaseContext.getCurrentId();
         UserPoints userPoints = userPointsMapper.selectByUserId(userId);
         if (userPoints == null) {
-            initUserPoints(userId);
+            initUserPoints();
             return 0;
         }
         return userPoints.getPoints();
@@ -28,75 +31,82 @@ public class UserPointsServiceImpl implements UserPointsService {
 
     @Override
     @Transactional
-    public void addPoints(Long userId, Integer points) {
+    public void addPoints(Integer points, Integer type) {
+        Long userId = BaseContext.getCurrentId();
         UserPoints userPoints = userPointsMapper.selectByUserId(userId);
         if (userPoints == null) {
-            initUserPoints(userId);
+            initUserPoints();
+            userPoints = userPointsMapper.selectByUserId(userId);
         }
-        userPointsMapper.addPoints(userId, points);
-    }
-
-    @Override
-    @Transactional
-    public void addPoints(Long userId, Integer points, String type, String description) {
-        // 更新用户积分
-        UserPoints userPoints = userPointsMapper.selectByUserId(userId);
-        if (userPoints == null) {
-            initUserPoints(userId);
-        }
-        userPointsMapper.addPoints(userId, points);
         
-        // 记录积分变动
-        UserPoints pointsRecord = new UserPoints();
-        pointsRecord.setUserId(userId);
-        pointsRecord.setPoints(points);
-        pointsRecord.setType(type);
-        pointsRecord.setDescription(description);
-        userPointsMapper.insertPointsRecord(pointsRecord);
-    }
-
-    @Override
-    @Transactional
-    public boolean reducePoints(Long userId, Integer points) {
-        UserPoints userPoints = userPointsMapper.selectByUserId(userId);
-        if (userPoints == null || userPoints.getPoints() < points) {
-            return false;
+        // 乐观锁重试机制
+        int maxRetries = 3;
+        int retryCount = 0;
+        boolean success = false;
+        
+        while (!success && retryCount < maxRetries) {
+            int updated = userPointsMapper.addPoints(userId, points, userPoints.getVersion());
+            if (updated > 0) {
+                success = true;
+                // 记录积分变动
+                PointsTransaction transaction = new PointsTransaction();
+                transaction.setUserId(userId);
+                transaction.setPoints(points);
+                transaction.setType(type);
+                userPointsMapper.insertPointsTransaction(transaction);
+            } else {
+                // 重试前重新获取最新数据
+                userPoints = userPointsMapper.selectByUserId(userId);
+                retryCount++;
+            }
         }
-        userPointsMapper.reducePoints(userId, points);
-        return true;
     }
 
     @Override
     @Transactional
-    public boolean reducePoints(Long userId, Integer points, String type, String description) {
-        // 检查积分是否足够
+    public boolean reducePoints(Integer points, Integer type) {
+        Long userId = BaseContext.getCurrentId();
         UserPoints userPoints = userPointsMapper.selectByUserId(userId);
         if (userPoints == null || userPoints.getPoints() < points) {
             return false;
         }
         
-        // 减少用户积分
-        userPointsMapper.reducePoints(userId, points);
+        // 乐观锁重试机制
+        int maxRetries = 3;
+        int retryCount = 0;
+        boolean success = false;
         
-        // 记录积分变动
-        UserPoints pointsRecord = new UserPoints();
-        pointsRecord.setUserId(userId);
-        pointsRecord.setPoints(-points); // 负值表示减少
-        pointsRecord.setType(type);
-        pointsRecord.setDescription(description);
-        userPointsMapper.insertPointsRecord(pointsRecord);
+        while (!success && retryCount < maxRetries) {
+            int updated = userPointsMapper.reducePoints(userId, points, userPoints.getVersion());
+            if (updated > 0) {
+                success = true;
+                // 记录积分变动
+                PointsTransaction transaction = new PointsTransaction();
+                transaction.setUserId(userId);
+                transaction.setPoints(-points); // 负值表示减少
+                transaction.setType(type);
+                userPointsMapper.insertPointsTransaction(transaction);
+            } else {
+                // 重试前重新获取最新数据
+                userPoints = userPointsMapper.selectByUserId(userId);
+                if (userPoints == null || userPoints.getPoints() < points) {
+                    return false;
+                }
+                retryCount++;
+            }
+        }
         
-        return true;
+        return success;
     }
 
     @Override
     @Transactional
-    public void initUserPoints(Long userId) {
+    public void initUserPoints() {
+        Long userId = BaseContext.getCurrentId();
         UserPoints userPoints = new UserPoints();
         userPoints.setUserId(userId);
         userPoints.setPoints(0);
-        userPoints.setType("INIT");
-        userPoints.setDescription("初始化积分");
+        userPoints.setVersion(0);
         userPointsMapper.insert(userPoints);
     }
 }

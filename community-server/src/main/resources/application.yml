@@ -53,9 +53,11 @@ mybatis:
     log-impl: ${mybatis.log-impl}
 
 jwt:
-  secret-key: ${jwt.secret-key}
-  expire-time: 604800
-  token-name: Authorization
+  secret: ${jwt.secret}
+  access:
+    expiration: ${jwt.access.expiration}
+  refresh:
+    expiration: ${jwt.refresh.expiration}
 
 aliyun:
   oss:

@@ -7,28 +7,25 @@
     </select>
 
     <insert id="insert" parameterType="com.cool.pojo.entity.UserPoints">
-        INSERT INTO user_points (user_id, points, type, description,  created_at)
-        VALUES (#{userId}, #{points}, #{type}, #{description}, NOW())
+        INSERT INTO user_points (user_id, points, version, update_at)
+        VALUES (#{userId}, #{points}, #{version}, NOW())
     </insert>
 
-    <update id="updatePoints">
-        UPDATE user_points SET points = #{points}
-        WHERE user_id = #{userId}
-    </update>
-
     <update id="addPoints">
-        UPDATE user_points SET points = points + #{points}
-        WHERE user_id = #{userId}
+        UPDATE user_points 
+        SET points = points + #{points}, version = version + 1, update_at = NOW()
+        WHERE user_id = #{userId} AND version = #{version}
     </update>
 
     <update id="reducePoints">
-        UPDATE user_points SET points = points - #{points}
-        WHERE user_id = #{userId} AND points >= #{points}
+        UPDATE user_points 
+        SET points = points - #{points}, version = version + 1, update_at = NOW()
+        WHERE user_id = #{userId} AND version = #{version} AND points >= #{points}
     </update>
 
-    <insert id="insertPointsRecord" parameterType="com.cool.pojo.entity.UserPoints">
-        INSERT INTO user_points (user_id, points, type, description,  created_at)
-        VALUES (#{userId}, #{points}, #{type}, #{description},  NOW())
+    <insert id="insertPointsTransaction" parameterType="com.cool.pojo.entity.PointsTransaction">
+        INSERT INTO points_transaction (user_id, points, type, create_at)
+        VALUES (#{userId}, #{points}, #{type}, NOW())
     </insert>
 
 </mapper>

@@ -2,9 +2,9 @@ import axios from './axios';
 
 const checkinApi = {
   // 执行签到
-  checkin: async (userId) => {
+  checkin: async () => {
     try {
-      const response = await axios.post('/checkin', { userId });
+      const response = await axios.post('/checkin');
       return response.data;
     } catch (error) {
       console.error('签到失败:', error);
@@ -13,9 +13,9 @@ const checkinApi = {
   },
 
   // 检查今天是否已签到
-  hasCheckedInToday: async (userId) => {
+  hasCheckedInToday: async () => {
     try {
-      const response = await axios.get(`/checkin/${userId}/status`);
+      const response = await axios.get('/checkin/status');
       return response.data;
     } catch (error) {
       console.error('检查签到状态失败:', error);

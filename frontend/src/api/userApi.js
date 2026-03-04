@@ -67,6 +67,10 @@ const userApi = {
 
   updateOnlineStatus: (status) => {
     return axios.put('/online-status', { status })
+  },
+
+  refreshToken: (refreshToken) => {
+    return axios.post('/user/refresh', { refreshToken })
   }
 }
 

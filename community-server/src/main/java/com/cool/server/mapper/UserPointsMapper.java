@@ -1,6 +1,7 @@
 package com.cool.server.mapper;
 
 import com.cool.pojo.entity.UserPoints;
+import com.cool.pojo.entity.PointsTransaction;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -16,27 +17,22 @@ public interface UserPointsMapper {
     UserPoints selectByUserId(@Param("userId") Long userId);
 
     /**
-     * 插入积分记录
+     * 初始化用户积分
      */
     void insert(UserPoints userPoints);
 
     /**
-     * 更新用户积分
+     * 增加用户积分（使用乐观锁）
      */
-    void updatePoints(@Param("userId") Long userId, @Param("points") Integer points);
+    int addPoints(@Param("userId") Long userId, @Param("points") Integer points, @Param("version") Integer version);
 
     /**
-     * 增加用户积分
+     * 减少用户积分（使用乐观锁）
      */
-    void addPoints(@Param("userId") Long userId, @Param("points") Integer points);
-
-    /**
-     * 减少用户积分
-     */
-    void reducePoints(@Param("userId") Long userId, @Param("points") Integer points);
+    int reducePoints(@Param("userId") Long userId, @Param("points") Integer points, @Param("version") Integer version);
 
     /**
      * 插入积分变动记录
      */
-    void insertPointsRecord(UserPoints userPoints);
+    void insertPointsTransaction(PointsTransaction transaction);
 }

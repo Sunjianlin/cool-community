@@ -61,9 +61,8 @@ public class PointsAspect {
      */
     @AfterReturning("postCreatePointcut()")
     public void addPointsAfterPostCreate(JoinPoint joinPoint) {
-        Long userId = BaseContext.getCurrentId();
-        if (userId != null) {
-            userPointsService.addPoints(userId, PointsConstant.POST_CREATE_POINTS, "POST_CREATE", "发布帖子获得积分");
+        if (BaseContext.getCurrentId() != null) {
+            userPointsService.addPoints(PointsConstant.POST_CREATE_POINTS, PointsConstant.TYPE_POST_CREATE);
         }
     }
 
@@ -72,9 +71,8 @@ public class PointsAspect {
      */
     @AfterReturning("commentCreatePointcut()")
     public void addPointsAfterCommentCreate(JoinPoint joinPoint) {
-        Long userId = BaseContext.getCurrentId();
-        if (userId != null) {
-            userPointsService.addPoints(userId, PointsConstant.COMMENT_CREATE_POINTS, "COMMENT_CREATE", "发表评论获得积分");
+        if (BaseContext.getCurrentId() != null) {
+            userPointsService.addPoints(PointsConstant.COMMENT_CREATE_POINTS, PointsConstant.TYPE_COMMENT_CREATE);
         }
     }
 
@@ -89,7 +87,15 @@ public class PointsAspect {
         if (args.length >= 2) {
             Long targetId = (Long) args[1];
             if (targetId != null) {
-                userPointsService.addPoints(targetId, PointsConstant.LIKE_POINTS, "BE_LIKED", "被点赞获得积分");
+                // 临时设置目标用户ID到BaseContext，以便在addPoints方法中获取
+                Long originalUserId = BaseContext.getCurrentId();
+                BaseContext.setCurrentId(targetId);
+                try {
+                    userPointsService.addPoints(PointsConstant.LIKE_POINTS, PointsConstant.TYPE_BE_LIKED);
+                } finally {
+                    // 恢复原始用户ID
+                    BaseContext.setCurrentId(originalUserId);
+                }
             }
         }
     }
@@ -105,7 +111,15 @@ public class PointsAspect {
         if (args.length >= 2) {
             Long followId = (Long) args[1];
             if (followId != null) {
-                userPointsService.addPoints(followId, PointsConstant.BE_FOLLOWED_POINTS, "BE_FOLLOWED", "被关注获得积分");
+                // 临时设置目标用户ID到BaseContext，以便在addPoints方法中获取
+                Long originalUserId = BaseContext.getCurrentId();
+                BaseContext.setCurrentId(followId);
+                try {
+                    userPointsService.addPoints(PointsConstant.BE_FOLLOWED_POINTS, PointsConstant.TYPE_BE_FOLLOWED);
+                } finally {
+                    // 恢复原始用户ID
+                    BaseContext.setCurrentId(originalUserId);
+                }
             }
         }
     }
@@ -115,9 +129,8 @@ public class PointsAspect {
      */
     @AfterReturning("productReviewPointcut()")
     public void addPointsAfterProductReview(JoinPoint joinPoint) {
-        Long userId = BaseContext.getCurrentId();
-        if (userId != null) {
-            userPointsService.addPoints(userId, PointsConstant.PRODUCT_REVIEW_POINTS, "PRODUCT_REVIEW", "评论产品获得积分");
+        if (BaseContext.getCurrentId() != null) {
+            userPointsService.addPoints(PointsConstant.PRODUCT_REVIEW_POINTS, PointsConstant.TYPE_PRODUCT_REVIEW);
         }
     }
 
@@ -132,7 +145,15 @@ public class PointsAspect {
             if (args.length >= 1) {
                 Long userId = (Long) args[0];
                 if (userId != null) {
-                    userPointsService.addPoints(userId, PointsConstant.SECKILL_SUCCESS_POINTS, "SECKILL_SUCCESS", "秒杀成功获得积分");
+                    // 临时设置目标用户ID到BaseContext，以便在addPoints方法中获取
+                    Long originalUserId = BaseContext.getCurrentId();
+                    BaseContext.setCurrentId(userId);
+                    try {
+                        userPointsService.addPoints(PointsConstant.SECKILL_SUCCESS_POINTS, PointsConstant.TYPE_SECKILL_SUCCESS);
+                    } finally {
+                        // 恢复原始用户ID
+                        BaseContext.setCurrentId(originalUserId);
+                    }
                 }
             }
         }

@@ -8,30 +8,20 @@ public interface UserPointsService {
     /**
      * 获取用户积分
      */
-    Integer getUserPoints(Long userId);
+    Integer getUserPoints();
 
     /**
      * 增加用户积分
      */
-    void addPoints(Long userId, Integer points);
-
-    /**
-     * 增加用户积分并记录类型和描述
-     */
-    void addPoints(Long userId, Integer points, String type, String description);
+    void addPoints(Integer points, Integer type);
 
     /**
      * 减少用户积分
      */
-    boolean reducePoints(Long userId, Integer points);
-
-    /**
-     * 减少用户积分并记录类型和描述
-     */
-    boolean reducePoints(Long userId, Integer points, String type, String description);
+    boolean reducePoints(Integer points, Integer type);
 
     /**
      * 初始化用户积分
      */
-    void initUserPoints(Long userId);
+    void initUserPoints();
 }

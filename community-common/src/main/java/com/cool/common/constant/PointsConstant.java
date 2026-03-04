@@ -5,6 +5,16 @@ package com.cool.common.constant;
  */
 public class PointsConstant {
 
+    // 积分类型
+    public static final int TYPE_INIT = 0; // 初始化
+    public static final int TYPE_CHECKIN = 1; // 签到
+    public static final int TYPE_POST_CREATE = 2; // 发帖
+    public static final int TYPE_COMMENT_CREATE = 3; // 评论
+    public static final int TYPE_BE_LIKED = 4; // 被点赞
+    public static final int TYPE_BE_FOLLOWED = 5; // 被关注
+    public static final int TYPE_PRODUCT_REVIEW = 6; // 产品评论
+    public static final int TYPE_SECKILL_SUCCESS = 7; // 秒杀成功
+
     // 签到积分
     public static final int CHECKIN_POINTS = 10; // 基础签到积分
     public static final int CHECKIN_BONUS_3_DAYS = 5; // 连续3天额外奖励

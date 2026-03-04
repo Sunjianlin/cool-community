@@ -1,26 +1,35 @@
-import axios from 'axios';
+import axios from './axios';
 
 const pointsApi = {
   // 获取用户积分
-  getUserPoints: async (userId) => {
+  getUserPoints: async () => {
     try {
-      const response = await axios.get(`/api/points/${userId}`);
+      const response = await axios.get('/points/');
       return response.data;
     } catch (error) {
       console.error('获取用户积分失败:', error);
       throw error;
     }
   },
-  
-  // 获取用户积分记录
-  getPointsRecords: async (userId, page = 1, size = 10) => {
+
+  // 增加用户积分
+  addPoints: async (points, type) => {
     try {
-      const response = await axios.get(`/api/points/${userId}/records`, {
-        params: { page, size }
-      });
+      const response = await axios.post('/points/add', { points, type });
       return response.data;
     } catch (error) {
-      console.error('获取积分记录失败:', error);
+      console.error('增加用户积分失败:', error);
+      throw error;
+    }
+  },
+
+  // 减少用户积分
+  reducePoints: async (points, type) => {
+    try {
+      const response = await axios.post('/points/reduce', { points, type });
+      return response.data;
+    } catch (error) {
+      console.error('减少用户积分失败:', error);
       throw error;
     }
   }

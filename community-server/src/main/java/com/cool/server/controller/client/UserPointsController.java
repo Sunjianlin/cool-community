@@ -14,45 +14,34 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "用户积分", description = "用户积分相关接口")
 @RestController
-@RequestMapping("/api/points")
+@RequestMapping("/points")
 public class UserPointsController {
 
     @Autowired
     private UserPointsService userPointsService;
 
     @Operation(summary = "获取用户积分", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/{userId}")
-    public Result<Integer> getUserPoints(
-            @Parameter(description = "用户ID") @PathVariable Long userId) {
-        Integer points = userPointsService.getUserPoints(userId);
+    @GetMapping("/")
+    public Result<Integer> getUserPoints() {
+        Integer points = userPointsService.getUserPoints();
         return Result.success(points);
     }
 
     @Operation(summary = "增加用户积分", security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/add")
     public Result<Void> addPoints(
-            @Parameter(description = "用户ID") @RequestParam Long userId,
-            @Parameter(description = "积分数量") @RequestParam Integer points) {
-        userPointsService.addPoints(userId, points);
+            @Parameter(description = "积分数量") @RequestParam Integer points,
+            @Parameter(description = "积分类型") @RequestParam Integer type) {
+        userPointsService.addPoints(points, type);
         return Result.success();
     }
 
     @Operation(summary = "减少用户积分", security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/reduce")
     public Result<Boolean> reducePoints(
-            @Parameter(description = "用户ID") @RequestParam Long userId,
-            @Parameter(description = "积分数量") @RequestParam Integer points) {
-        boolean success = userPointsService.reducePoints(userId, points);
+            @Parameter(description = "积分数量") @RequestParam Integer points,
+            @Parameter(description = "积分类型") @RequestParam Integer type) {
+        boolean success = userPointsService.reducePoints(points, type);
         return Result.success(success);
-    }
-
-    @Operation(summary = "获取用户积分记录", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/{userId}/records")
-    public Result<?> getPointsRecords(
-            @Parameter(description = "用户ID") @PathVariable Long userId,
-            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer size) {
-        // 这里需要根据实际的UserPointsService实现来返回积分记录
-        return Result.success(null);
     }
 }

@@ -46,4 +46,6 @@ public interface UserService {
     void kickUser(Long id);
     
     Map<String, Object> getOnlineUserStats();
+
+    UserLoginVO refreshToken(String refreshToken, String deviceId);
 }

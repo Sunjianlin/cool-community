@@ -48,6 +48,7 @@ export const useUserStore = defineStore('user', {
         
         localStorage.setItem('user', JSON.stringify(user))
         localStorage.setItem('token', user.token)
+        localStorage.setItem('refreshToken', user.refreshToken)
         
         // 启动token检测
         this.startTokenCheck()
@@ -82,6 +83,7 @@ export const useUserStore = defineStore('user', {
         this.userAvatar = DEFAULT_AVATAR
         localStorage.removeItem('user')
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
       }
     },
     
@@ -94,6 +96,7 @@ export const useUserStore = defineStore('user', {
       this.userAvatar = DEFAULT_AVATAR
       localStorage.removeItem('user')
       localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
     },
     
     setLoggedIn(userData) {

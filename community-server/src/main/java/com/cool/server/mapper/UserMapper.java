@@ -83,4 +83,6 @@ public interface UserMapper {
 
     @Update("UPDATE user SET post_count=post_count+1 where id=#{userId}")
     void addPostCount(Long userId);
+
+
 }

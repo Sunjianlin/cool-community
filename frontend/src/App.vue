@@ -147,7 +147,7 @@ const handleCheckin = async () => {
   }
   
   try {
-    const response = await checkinApi.checkin(userStore.user.id)
+    const response = await checkinApi.checkin()
     if (response.code === 200) {
       const pointsEarned = response.data
       if (pointsEarned > 0) {
@@ -169,7 +169,7 @@ const checkCheckinStatus = async () => {
   if (!userStore.isLoggedIn) return
   
   try {
-    const response = await checkinApi.hasCheckedInToday(userStore.user.id)
+    const response = await checkinApi.hasCheckedInToday()
     if (response.code === 200) {
       hasCheckedInToday.value = response.data
     }
@@ -183,7 +183,7 @@ const getUserPoints = async () => {
   if (!userStore.isLoggedIn) return
   
   try {
-    const response = await pointsApi.getUserPoints(userStore.user.id)
+    const response = await pointsApi.getUserPoints()
     if (response.code === 200) {
       userPoints.value = response.data
     }

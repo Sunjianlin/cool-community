@@ -6,14 +6,16 @@ import com.cool.pojo.dto.UserRegisterDTO;
 import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.UserLoginVO;
 import com.cool.pojo.vo.UserVO;
-import com.cool.server.annotation.RequireLogin;
 import com.cool.server.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
 
 @Tag(name = "用户接口", description = "用户登录、注册、个人信息管理")
 @RestController
@@ -39,14 +41,14 @@ public class UserClientController {
     }
 
     @Operation(summary = "退出登录", description = "退出登录，清除Token", security = @SecurityRequirement(name = "Bearer"))
-    @RequireLogin
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public void logout() {
         userService.logout();
     }
 
     @Operation(summary = "获取当前用户信息", description = "获取当前登录用户的详细信息", security = @SecurityRequirement(name = "Bearer"))
-    @RequireLogin
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/info")
     public UserVO getUserInfo() {
         return userService.getUserInfo();
@@ -59,28 +61,28 @@ public class UserClientController {
     }
 
     @Operation(summary = "更新用户信息", description = "更新当前用户的个人信息", security = @SecurityRequirement(name = "Bearer"))
-    @RequireLogin
+    @PreAuthorize("isAuthenticated()")
     @PutMapping("/update")
     public void updateUserInfo(@RequestBody UserVO vo) {
         userService.updateUserInfo(vo);
     }
 
     @Operation(summary = "上传头像", description = "上传用户头像图片", security = @SecurityRequirement(name = "Bearer"))
-    @RequireLogin
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/avatar")
     public String uploadAvatar(@Parameter(description = "头像文件") @RequestParam("file") MultipartFile file) {
         return userService.uploadAvatar(file);
     }
 
     @Operation(summary = "关注用户", description = "关注指定用户", security = @SecurityRequirement(name = "Bearer"))
-    @RequireLogin
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/follow/{id}")
     public void followUser(@Parameter(description = "用户ID") @PathVariable Long id) {
         userService.followUser(id);
     }
 
     @Operation(summary = "取消关注用户", description = "取消关注指定用户", security = @SecurityRequirement(name = "Bearer"))
-    @RequireLogin
+    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/unfollow/{id}")
     public void unfollowUser(@Parameter(description = "用户ID") @PathVariable Long id) {
         userService.unfollowUser(id);
@@ -100,5 +102,16 @@ public class UserClientController {
             @Parameter(description = "用户ID") @PathVariable Long id, 
             PageQueryDTO dto) {
         return userService.getFollowerList(id, dto);
+    }
+
+    @Operation(summary = "刷新令牌", description = "使用刷新令牌获取新的访问令牌和刷新令牌")
+    @PostMapping("/refresh")
+    public UserLoginVO refreshToken(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+        String deviceId = request.get("deviceId");
+        if (refreshToken == null) {
+            throw new RuntimeException("刷新令牌不能为空");
+        }
+        return userService.refreshToken(refreshToken,deviceId);
     }
 }

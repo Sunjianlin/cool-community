@@ -1,5 +1,6 @@
 package com.cool.server.service.impl;
 
+import com.cool.common.constant.PointsConstant;
 import com.cool.pojo.entity.UserCheckin;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.UserCheckinMapper;
@@ -58,7 +59,7 @@ public class UserCheckinServiceImpl implements UserCheckinService {
         userCheckinMapper.insert(checkin);
 
         // 增加用户积分
-        userPointsService.addPoints(userId, pointsEarned, "CHECKIN", "每日签到获得积分");
+        userPointsService.addPoints(pointsEarned, PointsConstant.TYPE_CHECKIN);
 
         return pointsEarned;
     }

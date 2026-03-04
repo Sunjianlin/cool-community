@@ -3,6 +3,7 @@ package com.cool.server.controller.admin;
 import com.cool.common.properties.AliOssProperties;
 import com.cool.common.utils.AliOssUtil;
 import com.cool.pojo.entity.SeckillActivity;
+import com.cool.server.annotation.RequireAdmin;
 import com.cool.server.service.SeckillService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,6 +33,7 @@ public class SeckillAdminController {
     private AliOssProperties aliOssProperties;
     
     @Operation(summary = "上传背景图", security = @SecurityRequirement(name = "Bearer"))
+    @RequireAdmin
     @PostMapping("/upload")
     public Map<String, Object> uploadBackgroundImage(
             @Parameter(description = "背景图文件") @RequestParam("file") MultipartFile file) {
@@ -59,6 +61,7 @@ public class SeckillAdminController {
     }
     
     @Operation(summary = "创建活动", security = @SecurityRequirement(name = "Bearer"))
+    @RequireAdmin
     @PostMapping("/create")
     public Map<String, Object> createActivity(@RequestBody SeckillActivity activity) {
         seckillService.createActivity(activity);
@@ -66,6 +69,7 @@ public class SeckillAdminController {
     }
     
     @Operation(summary = "更新活动", security = @SecurityRequirement(name = "Bearer"))
+    @RequireAdmin
     @PutMapping("/update")
     public Map<String, Object> updateActivity(@RequestBody SeckillActivity activity) {
         seckillService.updateActivity(activity);
@@ -73,6 +77,7 @@ public class SeckillAdminController {
     }
     
     @Operation(summary = "删除活动", security = @SecurityRequirement(name = "Bearer"))
+    @RequireAdmin
     @DeleteMapping("/delete/{id}")
     public Map<String, Object> deleteActivity(
             @Parameter(description = "活动ID") @PathVariable Long id) {
