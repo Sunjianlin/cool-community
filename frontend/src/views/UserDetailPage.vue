@@ -1,6 +1,7 @@
 <template>
   <div class="user-detail-page">
-    <div class="user-header card">
+    <div class="user-header card" :style="headerBackgroundStyle">
+      <div class="header-overlay" v-if="isCurrentUser && currentBackground?.backgroundImage"></div>
       <div class="avatar-section">
         <img :src="userInfo.avatar || defaultAvatar" class="avatar" />
         <div class="user-info">
@@ -45,8 +46,18 @@
           <button class="btn btn-primary" @click="editUserProfile">
             编辑资料
           </button>
+          <button class="btn btn-outline" @click="showBackgroundDialog = true">
+            背景图
+          </button>
           <button class="btn btn-outline" @click="showStatusDialog = true">
             设置状态
+          </button>
+          <button 
+            :class="['btn', checkinStatus ? 'btn-success' : 'btn-warning']" 
+            @click="handleCheckin"
+            :disabled="checkinStatus || checkingIn"
+          >
+            {{ checkinStatus ? '已签到' : '每日签到' }}
           </button>
         </template>
         <template v-else>
@@ -61,6 +72,17 @@
             私信
           </button>
         </template>
+      </div>
+      
+      <div class="checkin-status" v-if="isCurrentUser">
+        <div class="checkin-info">
+          <span class="checkin-icon">📅</span>
+          <span v-if="checkinStatus" class="checkin-text success">今日已签到，获得 {{ dailyPoints }} 积分</span>
+          <span v-else class="checkin-text">每日签到可获得 {{ dailyPoints }} 积分</span>
+          <span class="consecutive-days" v-if="consecutiveDays > 0">
+            连续签到 {{ consecutiveDays }} 天
+          </span>
+        </div>
       </div>
     </div>
 
@@ -191,6 +213,45 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 背景图设置弹窗 -->
+    <el-dialog v-model="showBackgroundDialog" title="设置背景图" width="700px">
+      <div class="background-dialog-content">
+        <div v-if="loadingBackgrounds" class="loading">加载中...</div>
+        <div v-else-if="backgrounds.length === 0" class="empty-message">
+          <div class="empty-icon-large">🖼️</div>
+          <h4>暂无背景图</h4>
+          <p>参与秒杀活动可获取精美背景图</p>
+          <button class="btn btn-primary" @click="showBackgroundDialog = false; $router.push('/activities')">
+            参与活动
+          </button>
+        </div>
+        <div v-else class="background-grid">
+          <div 
+            v-for="bg in backgrounds" 
+            :key="bg.id" 
+            class="background-item"
+            :class="{ 'current': bg.isCurrent }"
+          >
+            <div class="background-preview">
+              <img :src="getBackgroundImageUrl(bg.backgroundImage)" alt="背景图" />
+              <div v-if="bg.isCurrent" class="current-badge">当前使用</div>
+            </div>
+            <div class="background-info">
+              <p class="acquire-time">获取时间: {{ formatDate(bg.acquireTime) }}</p>
+              <el-button 
+                :type="bg.isCurrent ? 'primary' : 'default'"
+                :disabled="bg.isCurrent"
+                @click="setCurrentBackground(bg.id)"
+                size="small"
+              >
+                {{ bg.isCurrent ? '当前使用' : '设为当前' }}
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -200,6 +261,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store/user'
 import userApi from '../api/userApi'
 import postApi from '../api/postApi'
+import checkinApi from '../api/checkinApi'
+import backgroundApi from '../api/backgroundApi'
 import { ElMessage } from 'element-plus'
 import { truncateWithStripHtml } from '../utils/textUtils'
 
@@ -223,6 +286,16 @@ const statusOptions = [
   { value: 2, label: '忙碌', icon: '🔴' },
   { value: 3, label: '离开', icon: '🟡' }
 ]
+
+const checkinStatus = ref(false)
+const checkingIn = ref(false)
+const dailyPoints = ref(10)
+const consecutiveDays = ref(0)
+
+const backgrounds = ref([])
+const currentBackground = ref(null)
+const loadingBackgrounds = ref(false)
+const showBackgroundDialog = ref(false)
 
 const isCurrentUser = computed(() => {
   return userStore.user?.id === Number(route.params.id)
@@ -497,10 +570,8 @@ const getOnlineStatusName = (status) => {
 const saveStatus = async () => {
   savingProfile.value = true
   try {
-    // 调用API更新用户在线状态
     await userApi.updateOnlineStatus(selectedStatus.value)
 
-    // 更新本地用户信息
     userInfo.value = {
       ...userInfo.value,
       onlineStatus: selectedStatus.value
@@ -516,14 +587,132 @@ const saveStatus = async () => {
   }
 }
 
-onMounted(() => {
-  loadUserInfo()
-  loadUserPosts()
+// 加载签到状态
+const loadCheckinStatus = async () => {
+  if (!isCurrentUser.value) return
+  
+  try {
+    const response = await checkinApi.hasCheckedInToday()
+    checkinStatus.value = response.data
+  } catch (error) {
+    console.error('加载签到状态失败:', error)
+  }
+}
+
+// 执行签到
+const handleCheckin = async () => {
+  if (checkinStatus.value || checkingIn.value) return
+  
+  checkingIn.value = true
+  try {
+    const response = await checkinApi.checkin()
+    const points = response.data
+    checkinStatus.value = true
+    dailyPoints.value = points
+    
+    ElMessage.success({
+      message: `签到成功！获得 ${points} 积分`,
+      duration: 3000,
+      showClose: true
+    })
+  } catch (error) {
+    console.error('签到失败:', error)
+    if (error.message === '今日已签到') {
+      ElMessage.warning('今日已签到')
+      checkinStatus.value = true
+    } else {
+      ElMessage.error('签到失败，请稍后重试')
+    }
+  } finally {
+    checkingIn.value = false
+  }
+}
+
+// 加载用户背景图列表
+const loadBackgrounds = async () => {
+  if (!isCurrentUser.value) return
+  
+  loadingBackgrounds.value = true
+  try {
+    const response = await backgroundApi.getBackgroundList()
+    if (response.code === 200) {
+      backgrounds.value = response.data || []
+    }
+  } catch (error) {
+    console.error('加载背景图失败:', error)
+  } finally {
+    loadingBackgrounds.value = false
+  }
+}
+
+// 获取当前背景图
+const loadCurrentBackground = async () => {
+  if (!isCurrentUser.value) return
+  
+  try {
+    const response = await backgroundApi.getCurrentBackground()
+    if (response.code === 200) {
+      currentBackground.value = response.data
+    }
+  } catch (error) {
+    console.error('加载当前背景图失败:', error)
+  }
+}
+
+// 设置当前背景图
+const setCurrentBackground = async (backgroundId) => {
+  try {
+    const response = await backgroundApi.setCurrentBackground(backgroundId)
+    if (response.code === 200) {
+      ElMessage.success('背景图设置成功')
+      await loadBackgrounds()
+      await loadCurrentBackground()
+    }
+  } catch (error) {
+    console.error('设置背景图失败:', error)
+    ElMessage.error('设置背景图失败')
+  }
+}
+
+// 获取背景图URL
+const getBackgroundImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http')) {
+    return imagePath
+  }
+  return `http://localhost:8082${imagePath}`
+}
+
+// 获取当前背景图样式
+const headerBackgroundStyle = computed(() => {
+  if (isCurrentUser.value && currentBackground.value?.backgroundImage) {
+    return {
+      backgroundImage: `url(${getBackgroundImageUrl(currentBackground.value.backgroundImage)})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
+  return {}
 })
 
-watch(() => route.params.id, () => {
-  loadUserInfo()
-  loadUserPosts()
+onMounted(async () => {
+  await loadUserInfo()
+  await loadUserPosts()
+  if (isCurrentUser.value) {
+    await loadCheckinStatus()
+    await loadBackgrounds()
+    await loadCurrentBackground()
+  }
+})
+
+watch(() => route.params.id, async () => {
+  await loadUserInfo()
+  await loadUserPosts()
+  if (isCurrentUser.value) {
+    await loadCheckinStatus()
+    await loadBackgrounds()
+    await loadCurrentBackground()
+  }
 })
 </script>
 
@@ -568,6 +757,47 @@ watch(() => route.params.id, () => {
   box-shadow: var(--shadow-md);
   transition: var(--transition);
   border: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.header-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 0;
+}
+
+.user-header .avatar-section,
+.user-header .user-actions,
+.user-header .checkin-status {
+  position: relative;
+  z-index: 1;
+}
+
+.user-header .user-info {
+  position: relative;
+  z-index: 1;
+}
+
+.user-header .user-info h2,
+.user-header .user-info .username,
+.user-header .user-info .bio,
+.user-header .user-info .contact-item,
+.user-header .user-info .stat-item {
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.user-header .user-info .username {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.user-header .user-info .stat-item {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .user-header:hover {
@@ -580,8 +810,6 @@ watch(() => route.params.id, () => {
   align-items: center;
   gap: 40px;
   margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* 头像 */
@@ -716,8 +944,6 @@ watch(() => route.params.id, () => {
   display: flex;
   gap: 20px;
   margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
   justify-content: center;
 }
 
@@ -1391,6 +1617,252 @@ watch(() => route.params.id, () => {
 .dialog-footer .btn {
   padding: 10px 24px;
   font-size: 16px;
+}
+
+/* 签到状态样式 */
+.checkin-status {
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(46, 204, 113, 0.05);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+  transition: var(--transition);
+}
+
+.checkin-status:hover {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: rgba(46, 204, 113, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+}
+
+.checkin-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkin-icon {
+  font-size: 20px;
+  color: var(--success-color);
+}
+
+.checkin-text {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.checkin-text.success {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.consecutive-days {
+  font-size: 14px;
+  color: var(--text-light);
+  background: rgba(46, 204, 113, 0.1);
+  padding: 4px 12px;
+  border-radius: 16px;
+  margin-left: auto;
+  transition: var(--transition);
+}
+
+.consecutive-days:hover {
+  background: rgba(46, 204, 113, 0.2);
+  color: var(--success-color);
+  transform: translateY(-2px);
+}
+
+/* 签到按钮样式 */
+.btn-warning {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  border: 1px solid #e67e22;
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  border-color: #d35400;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #27ae60, #229954);
+  border: 1px solid #229954;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #229954, #1e8449);
+  border-color: #1e8449;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* 背景图区域 */
+.user-backgrounds {
+  background: var(--card-gradient);
+  border-radius: var(--border-radius);
+  padding: 32px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.user-backgrounds:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+.section-title {
+  font-size: 24px;
+  margin-bottom: 28px;
+  color: var(--text-primary);
+  border-bottom: 3px solid var(--primary-color);
+  padding-bottom: 12px;
+  font-family: var(--font-display);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-icon {
+  font-size: 20px;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: var(--secondary-color);
+}
+
+.background-list {
+  min-height: 200px;
+}
+
+.background-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.background-item {
+  background: var(--background-white);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+  border: 2px solid transparent;
+}
+
+.background-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.background-item.current {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 16px rgba(52, 152, 219, 0.3);
+}
+
+.background-preview {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+}
+
+.background-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: var(--transition);
+}
+
+.background-item:hover .background-preview img {
+  transform: scale(1.05);
+}
+
+.current-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--primary-color);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
+}
+
+.background-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acquire-time {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.empty-message {
+  text-align: center;
+  color: var(--text-light);
+  padding: 80px 40px;
+  font-size: 18px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: var(--border-radius);
+  border: 2px dashed rgba(0, 0, 0, 0.1);
+  transition: var(--transition);
+}
+
+.empty-message:hover {
+  background: rgba(52, 152, 219, 0.05);
+  border-color: var(--primary-color);
+}
+
+.empty-icon-large {
+  font-size: 64px;
+  margin-bottom: 24px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.empty-message h4 {
+  font-size: 20px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-family: var(--font-display);
+}
+
+.empty-message p {
+  margin-bottom: 32px;
+  color: var(--text-secondary);
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
 }
 
 /* 响应式设计 */

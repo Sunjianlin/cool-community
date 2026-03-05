@@ -1,6 +1,6 @@
 package com.cool.server.controller.client;
 
-import com.cool.common.Result;
+import com.cool.pojo.Result;
 import com.cool.server.service.UserPointsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

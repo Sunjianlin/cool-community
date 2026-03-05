@@ -1,5 +1,6 @@
 package com.cool.server.handler;
 
+import com.cool.pojo.Result;
 import com.cool.pojo.vo.PageVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.MethodParameter;
@@ -31,7 +32,12 @@ public class ResponseHandler implements ResponseBodyAdvice<Object> {
         if (path.contains("/v3/api-docs") || path.contains("/swagger-ui")) {
             return body;
         }
-        
+        // 新增：如果已经是 Result 类型，直接返回
+        if (body instanceof Result) {
+            return body;
+        }
+
+
         if (body == null) {
             return success(null);
         }

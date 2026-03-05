@@ -45,9 +45,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import seckillApi from '../api/seckillApi'
+import { useUserStore } from '../store/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 const activityId = computed(() => route.params.id)
 const activity = ref(null)
 const loading = ref(true)
@@ -97,9 +99,10 @@ const doSeckill = async () => {
   isSeckilling.value = true
   try {
     const response = await seckillApi.doSeckill(activityId.value)
-    if (response.code === 200 && response.data) {
+    if (response.code === 200) {
       ElMessage.success('抢购成功！')
-      router.push('/profile/background')
+      await loadActivity()
+      router.push(`/user/${userStore.user.id}`)
     } else {
       ElMessage.error(response.message || '抢购失败，请重试')
     }

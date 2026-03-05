@@ -929,6 +929,18 @@ const handleSeckillBackgroundChange = async (file) => {
   }
 }
 
+const formatDateTime = (date) => {
+  if (!date) return null
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const seconds = String(d.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 const saveSeckill = async () => {
   if (!editingSeckill.value.activityName) {
     ElMessage.warning('请输入活动名称')
@@ -952,11 +964,16 @@ const saveSeckill = async () => {
   }
   saving.value = true
   try {
+    const dataToSend = {
+      ...editingSeckill.value,
+      startTime: formatDateTime(editingSeckill.value.startTime),
+      endTime: formatDateTime(editingSeckill.value.endTime)
+    }
     if (editingSeckill.value.id) {
-      await seckillApi.updateSeckill(editingSeckill.value)
+      await seckillApi.updateSeckill(dataToSend)
       ElMessage.success('秒杀活动更新成功')
     } else {
-      await seckillApi.createSeckill(editingSeckill.value)
+      await seckillApi.createSeckill(dataToSend)
       ElMessage.success('秒杀活动添加成功')
     }
     seckillDialogVisible.value = false

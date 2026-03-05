@@ -1,8 +1,8 @@
 package com.cool.server.service;
 
-import com.cool.common.enumeration.SeckillResult;
+import com.cool.pojo.Result;
 import com.cool.pojo.entity.SeckillActivity;
-import com.cool.pojo.entity.UserBackground;
+
 import java.util.List;
 
 /**
@@ -13,7 +13,7 @@ public interface SeckillService {
     /**
      * 执行秒杀
      */
-    SeckillResult doSeckill(Long userId, Long activityId);
+    void doSeckill(Long userId, Long activityId);
     
     /**
      * 获取活动详情

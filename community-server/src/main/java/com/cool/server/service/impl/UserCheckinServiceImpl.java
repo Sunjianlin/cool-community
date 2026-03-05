@@ -1,6 +1,7 @@
 package com.cool.server.service.impl;
 
 import com.cool.common.constant.PointsConstant;
+import com.cool.common.exception.BusinessException;
 import com.cool.pojo.entity.UserCheckin;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.UserCheckinMapper;
@@ -44,7 +45,7 @@ public class UserCheckinServiceImpl implements UserCheckinService {
         
         // 检查今天是否已签到
         if (hasCheckedInOnDate(today)) {
-            return 0; // 已签到，返回0积分
+            throw new BusinessException("今日已签到");
         }
 
         // 计算连续签到天数

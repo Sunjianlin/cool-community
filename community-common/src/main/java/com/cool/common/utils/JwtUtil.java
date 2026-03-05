@@ -68,23 +68,43 @@ public class JwtUtil {
     }
 
     /**
-     * 生成Refresh Token（增强版，支持自定义字段）
-     * @param username 用户名
-     * @param userId 用户ID
-     * @param deviceId 设备标识（可选，用于绑定终端）
-     * @return 刷新令牌
+     * 生成Refresh Token（优化版）
+            * @param username 用户名（允许null，兼容异常场景）
+            * @param userId 用户ID（允许null，兼容异常场景）
+            * @param deviceId 设备ID（允许null，避免空值导致JWT生成失败）
+            * @return 有效的Refresh Token字符串
      */
     public String generateRefreshToken(String username, Long userId, String deviceId) {
-        return Jwts.builder()
-                .setSubject(username) // sub：用户名
-                .claim("userId", userId) // 关联用户ID
-                .claim("tokenType", "refresh") // 标记令牌类型
-                .claim("deviceId", deviceId) // 设备标识（增强安全性）
-                .claim("jti", UUID.randomUUID().toString()) // 唯一ID，用于注销
-                .setIssuedAt(new Date()) // iat：签发时间
-                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration * 1000)) // exp：过期时间
-                .signWith(getKey(), SignatureAlgorithm.HS256) // 显式指定算法
-                .compact();
+        // 1. 空值兜底：避免null导致JWT claim异常
+        String safeUsername = (username == null || username.isBlank()) ? "unknown" : username;
+        Long safeUserId = (userId == null) ? 0L : userId;
+        String safeDeviceId = (deviceId == null || deviceId.isBlank()) ? "unknown-device" : deviceId;
+
+        // 2. 校验过期时间有效性（核心修复：避免Redis setex异常）
+        long effectiveExpiration = refreshExpiration;
+        if (effectiveExpiration <= 0) {
+            effectiveExpiration = 604800; // 默认7天（604800秒）
+            log.warn("Refresh Token过期时间配置无效（{}秒），使用默认值：7天", refreshExpiration);
+        }
+
+        // 3. 构建JWT（增强安全性+空值安全）
+        try {
+            return Jwts.builder()
+                    .setSubject(safeUsername) // sub：用户名（兜底后非空）
+                    .claim("userId", safeUserId) // 用户ID（兜底为0L，避免null）
+                    .claim("tokenType", "refresh") // 标记令牌类型，用于校验
+                    .claim("deviceId", safeDeviceId) // 设备ID（兜底后非空）
+                    .claim("jti", UUID.randomUUID().toString()) // 唯一标识，用于精准注销
+                    .setIssuedAt(new Date()) // 签发时间
+                    // 过期时间：毫秒级计算（避免时间戳错误）
+                    .setExpiration(new Date(System.currentTimeMillis() + effectiveExpiration * 1000))
+                    .signWith(getKey(), SignatureAlgorithm.HS256) // 显式指定密钥+算法
+                    .compact();
+        } catch (Exception e) {
+            // 4. 异常捕获：避免JWT生成失败导致服务中断
+            log.error("生成Refresh Token失败，username={}, userId={}", username, userId, e);
+            throw new RuntimeException("生成刷新令牌失败", e); // 抛自定义业务异常更佳
+        }
     }
 
     /**
@@ -116,11 +136,23 @@ public class JwtUtil {
     }
 
     /**
-     * 获取用户名（封装空指针保护）
+     * 获取Token中的用户名（兼容Access/Refresh Token）
+     * @param token Access/Refresh Token
+     * @return 用户名（null则返回空字符串）
      */
     public String getUsername(String token) {
         Claims claims = parseToken(token);
-        return claims != null ? claims.get("username", String.class) : null;
+        if (claims == null) {
+            return null;
+        }
+        // 1. 优先读 Access Token 的 "username" claim
+        String username = claims.get("username", String.class);
+        // 2. 若为null，读 Refresh Token 的 "sub"（Subject）字段
+        if (username == null || username.isBlank()) {
+            username = claims.getSubject();
+        }
+        // 3. 兜底空值（避免返回null）
+        return username == null ? "" : username;
     }
 
     /**
@@ -164,6 +196,23 @@ public class JwtUtil {
             return true; // 解析失败视为过期
         }
         return claims.getExpiration().before(new Date());
+    }
+
+    /**
+     * 获取Refresh Token剩余有效期（毫秒）
+     * @param refreshToken 刷新令牌
+     * @return 剩余时间（毫秒），过期返回0
+     */
+    public long getRemainingTime(String refreshToken) {
+        try {
+            Claims claims = parseToken(refreshToken);
+            if (claims == null) return 0;
+            Date expireDate = claims.getExpiration();
+            return Math.max(0, expireDate.getTime() - System.currentTimeMillis());
+        } catch (Exception e) {
+            log.error("解析Refresh Token剩余时间失败", e);
+            return 0;
+        }
     }
 
     /**

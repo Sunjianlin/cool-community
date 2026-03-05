@@ -1,6 +1,6 @@
 package com.cool.server.controller.client;
 
-import com.cool.common.Result;
+import com.cool.pojo.Result;
 import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.dto.UserLoginDTO;
 import com.cool.pojo.dto.UserRegisterDTO;
@@ -8,7 +8,6 @@ import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.UserLoginVO;
 import com.cool.pojo.vo.UserVO;
 import com.cool.server.service.UserService;
-import com.cool.server.service.impl.UserServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

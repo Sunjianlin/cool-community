@@ -2,6 +2,7 @@ package com.cool.server.service.impl;
 
 import com.cool.common.constant.MessageConstant;
 import com.cool.common.constant.RedisConstant;
+import com.cool.common.exception.BusinessException;
 import com.cool.common.properties.JwtProperties;
 import com.cool.common.utils.JwtUtil;
 import com.cool.pojo.dto.PageQueryDTO;
@@ -28,6 +29,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.List;
@@ -102,10 +104,10 @@ public class UserServiceImpl implements UserService {
         claims.put("role", user.getRole());
 
         String accessToken = jwtUtil.generateAccessToken(claims);
-        String refreshToken = jwtUtil.generateRefreshToken(dto.getUsername(),user.getId(),dto.getDeviceId());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername(),user.getId(),dto.getDeviceId());
         
 
-        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + user.getId() ;
+        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + user.getId()+":"+jwtUtil.getJti(refreshToken) ;
         stringRedisTemplate.opsForValue().set(refreshTokenKey, refreshToken, RedisConstant.REFRESH_TOKEN_EXPIRE_TIME, TimeUnit.SECONDS);
         
         log.info("用户登录成功，生成双token: userId={}", user.getId());
@@ -355,6 +357,14 @@ public class UserServiceImpl implements UserService {
         return stats;
     }
 
+    // 掩码Token（仅保留首尾各4位，中间替换为*）
+    private String maskToken(String token) {
+        if (token == null || token.length() <= 8) {
+            return "******";
+        }
+        return token.substring(0, 4) + "****" + token.substring(token.length() - 4);
+    }
+
     public UserLoginVO refreshToken(String refreshToken, String deviceId) {
         // ========== 1. 基础校验：刷新令牌非空 ==========
         if (refreshToken == null || refreshToken.isBlank()) {
@@ -387,23 +397,29 @@ public class UserServiceImpl implements UserService {
         Long userId = jwtUtil.getUserId(refreshToken);
         String username = jwtUtil.getUsername(refreshToken);
         String jti = jwtUtil.getJti(refreshToken); // 获取令牌唯一标识
-        if (userId == null || username == null || jti == null) {
+        // 补充username空值校验
+        if (userId == null || jti == null || username == null || username.isBlank()) {
             log.error("刷新令牌缺少核心信息，userId={}, username={}", userId, username);
             throw new BusinessException(MessageConstant.REFRESH_TOKEN_INVALID);
         }
 
-        // ========== 4. 校验设备绑定（可选，增强安全性） ==========
+        // ========== 4. 校验设备绑定（增强安全性，兼容deviceId=null场景） ==========
+        String tokenDeviceId = refreshTokenClaims.get("deviceId", String.class);
         if (deviceId != null && !deviceId.isBlank()) {
-            String tokenDeviceId = refreshTokenClaims.get("deviceId", String.class);
-            if (!deviceId.equals(tokenDeviceId)) {
-                log.error("刷新令牌设备不匹配，userId={}, reqDevice={}, tokenDevice={}", userId, deviceId, tokenDeviceId);
+            // 前端传了deviceId，必须匹配（兜底token中的deviceId，避免null）
+            String safeTokenDeviceId = StringUtils.hasText(tokenDeviceId) ? tokenDeviceId : "unknown-device";
+            if (!deviceId.equals(safeTokenDeviceId)) {
+                log.error("刷新令牌设备不匹配，userId={}, reqDevice={}, tokenDevice={}", userId, deviceId, safeTokenDeviceId);
                 throw new BusinessException(MessageConstant.DEVICE_NOT_MATCH);
             }
+        } else {
+            // 前端未传deviceId，默认使用token中的deviceId（避免后续生成新token时丢失）
+            deviceId = tokenDeviceId;
         }
 
-        // ========== 5. 校验Redis中的刷新令牌（按jti存储，支持精准注销） ==========
-        // Redis Key规范：user:token:refresh:{userId}:{jti}
-        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId;
+        // ========== 5. 校验Redis中的刷新令牌（按jti存储，精准校验） ==========
+        // 修复：Redis Key规范 = user:token:refresh:{userId}:{jti}
+        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" + jti;
         String storedRefreshToken = stringRedisTemplate.opsForValue().get(refreshTokenKey);
 
         // 两种无效场景：1. Redis中无此令牌 2. 令牌内容不匹配
@@ -412,41 +428,70 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(MessageConstant.REFRESH_TOKEN_EXPIRED);
         }
 
-        // ========== 6. 校验用户是否存在 ==========
+        // ========== 6. 校验用户状态（补充：是否禁用） ==========
         User user = userMapper.getById(userId);
         if (user == null) {
             log.error("用户不存在，userId={}", userId);
             throw new BusinessException(MessageConstant.USER_NOT_FOUND);
         }
+        // 补充：校验用户是否被禁用（根据实际业务调整）
+        if (user.getStatus() == 0) {
+            log.error("用户已被禁用，userId={}", userId);
+            throw new BusinessException(MessageConstant.USER_DISABLED);
+        }
 
-        // ========== 7. 生成新的Access Token和Refresh Token ==========
+        // ========== 7. 生成新令牌（优化：仅必要时更换Refresh Token） ==========
         // 7.1 构建Access Token的Claims
         Map<String, Object> accessClaims = new HashMap<>();
         accessClaims.put("userId", user.getId());
         accessClaims.put("username", user.getUsername());
         accessClaims.put("role", user.getRole().toString()); // 统一为String，适配JwtUtil
 
-        // 7.2 生成新令牌
+        // 7.2 生成新的Access Token（必换）
         String newAccessToken = jwtUtil.generateAccessToken(accessClaims);
-        // 生成新的Refresh Token（携带userId、deviceId）
-        String newRefreshToken = jwtUtil.generateRefreshToken(user.getUsername(), user.getId(), deviceId);
+        log.info("生成新Access Token，userId={}, token={}", userId, maskToken(newAccessToken));
 
-        log.info("Access token={}", newAccessToken);
-        log.info("Refresh token={}", newRefreshToken);
-        String newRefreshTokenJti = jwtUtil.getJti(newRefreshToken); // 新令牌的jti
+        // 7.3 按需生成新Refresh Token（剩余有效期<1天则更换，否则复用）
+        String newRefreshToken = refreshToken;
+        String newRefreshTokenJti = jti;
+        long remainingTime = jwtUtil.getRemainingTime(refreshToken);
+        // 剩余时间 < 1天（86400000毫秒）则生成新Refresh Token
+        if (remainingTime < 86400000L) {
+            newRefreshToken = jwtUtil.generateRefreshToken(user.getUsername(), user.getId(), deviceId);
+            newRefreshTokenJti = jwtUtil.getJti(newRefreshToken);
+            log.info("Refresh Token剩余时间不足，生成新令牌，userId={}, newJti={}", userId, newRefreshTokenJti);
+        } else {
+            log.info("Refresh Token剩余时间充足，复用原令牌，userId={}, jti={}", userId, jti);
+        }
 
-        // ========== 8. 更新Redis中的刷新令牌 ==========
-        // 8.1 删除旧的刷新令牌（注销旧令牌）
-        stringRedisTemplate.delete(refreshTokenKey);
+        // ========== 8. 更新Redis中的刷新令牌（仅生成新Token时执行） ==========
+        try {
+            if (!newRefreshToken.equals(refreshToken)) {
+                // 8.1 删除旧的刷新令牌（精准注销）
+                stringRedisTemplate.delete(refreshTokenKey);
 
-        // 8.2 存储新的刷新令牌（Key包含新jti，过期时间与令牌一致）
-        String newRefreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" ;
-        stringRedisTemplate.opsForValue().set(
-                newRefreshTokenKey,
-                newRefreshToken,
-                jwtProperties.getRefreshExpireTime(), // 与令牌过期时间一致
-                TimeUnit.SECONDS
-        );
+                // 8.2 校验过期时间有效性（修复：避免setex异常）
+                long refreshExpireTime = jwtProperties.getRefreshExpireTime();
+                if (refreshExpireTime <= 0) {
+                    refreshExpireTime = 604800; // 默认7天（秒）
+                    log.warn("Refresh Token过期时间配置无效，使用默认值7天，userId={}", userId);
+                }
+
+                // 8.3 存储新的刷新令牌（修复Key拼接错误）
+                String newRefreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" + newRefreshTokenJti;
+                stringRedisTemplate.opsForValue().set(
+                        newRefreshTokenKey,
+                        newRefreshToken,
+                        refreshExpireTime,
+                        TimeUnit.SECONDS
+                );
+                log.info("新Refresh Token已存入Redis，key={}, expire={}秒", newRefreshTokenKey, refreshExpireTime);
+            }
+        } catch (Exception e) {
+            // 捕获Redis异常，避免令牌丢失
+            log.error("更新Redis刷新令牌失败，userId={}", userId, e);
+            throw new BusinessException("令牌刷新失败，请重试");
+        }
 
         // ========== 9. 构建返回VO ==========
         UserLoginVO vo = new UserLoginVO();
@@ -457,37 +502,5 @@ public class UserServiceImpl implements UserService {
         log.info("用户刷新令牌成功，userId={}, 旧jti={}, 新jti={}", userId, jti, newRefreshTokenJti);
         return vo;
     }
-
-    /**
-     * 令牌脱敏（日志中隐藏部分字符，保护安全）
-     */
-    private String maskToken(String token) {
-        if (token == null || token.length() < 10) {
-            return token;
-        }
-        return token.substring(0, 8) + "****" + token.substring(token.length() - 8);
-    }
-
-    // ========== 补充必要的常量/异常定义（如果项目中未定义） ==========
-    /**
-     * 业务异常类（替代通用RuntimeException）
-     */
-    public static class BusinessException extends RuntimeException {
-        private final String code;
-
-        public BusinessException(String message) {
-            super(message);
-            this.code = "500";
-        }
-
-        public BusinessException(String code, String message) {
-            super(message);
-            this.code = code;
-        }
-
-        // Getter
-        public String getCode() {
-            return code;
-        }
-    }
 }
+

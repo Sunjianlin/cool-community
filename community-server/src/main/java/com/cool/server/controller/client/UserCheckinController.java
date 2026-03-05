@@ -1,6 +1,6 @@
 package com.cool.server.controller.client;
 
-import com.cool.common.Result;
+import com.cool.pojo.Result;
 import com.cool.server.service.UserCheckinService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,7 +30,7 @@ public class UserCheckinController {
     }
 
     @Operation(summary = "用户签到", security = @SecurityRequirement(name = "Bearer"))
-    @PostMapping("")
+    @PostMapping
     public Result<Integer> checkin(){
         int pointsEarned = userCheckinService.checkin();
         return Result.success(pointsEarned);

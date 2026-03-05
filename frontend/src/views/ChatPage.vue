@@ -168,20 +168,23 @@ const formatDate = (dateStr) => {
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
   if (days === 0) {
-    return dateStr.slice(11, 16)
+    return formatTime(dateStr)
   } else if (days === 1) {
     return '昨天'
   } else if (days < 7) {
     return `${days}天前`
   } else {
-    return dateStr.slice(0, 10)
+    return date.toLocaleDateString()
   }
 }
 
 // 格式化时间
 const formatTime = (timeStr) => {
   if (!timeStr) return ''
-  return timeStr.slice(11, 16)
+  const date = new Date(timeStr)
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 
 // 检查URL参数，是否需要直接进入特定聊天

@@ -87,6 +87,7 @@
 <script setup>
 import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from './store/user'
 import { useChatStore } from './store/chat'
 import heartbeatService from './services/heartbeatService'

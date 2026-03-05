@@ -1,7 +1,6 @@
 package com.cool.server.controller.client;
 
-import com.cool.common.Result;
-import com.cool.common.enumeration.SeckillResult;
+import com.cool.pojo.Result;
 import com.cool.pojo.entity.SeckillActivity;
 import com.cool.server.context.BaseContext;
 import com.cool.server.service.SeckillService;
@@ -36,15 +35,11 @@ public class SeckillController {
     
     @Operation(summary = "执行秒杀", security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/do/{id}")
-    public Result<Boolean> doSeckill(
+    public Result<Void> doSeckill(
             @Parameter(description = "活动ID") @PathVariable Long id) {
         Long userId = BaseContext.getCurrentId();
-        SeckillResult result = seckillService.doSeckill(userId, id);
-        if (result.isSuccess()) {
-            return Result.success(true);
-        } else {
-            return Result.error(result.getCode(), result.getMessage());
-        }
+        seckillService.doSeckill(userId, id);
+        return Result.success();
     }
     
     @Operation(summary = "获取下一个活动", security = @SecurityRequirement(name = "Bearer"))

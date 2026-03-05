@@ -1,6 +1,7 @@
 package com.cool.server.service.impl;
 
-import com.cool.common.enumeration.SeckillResult;
+import com.cool.common.exception.BusinessException;
+import com.cool.pojo.Result;
 import com.cool.pojo.entity.SeckillActivity;
 import com.cool.pojo.entity.UserSeckillRecord;
 import com.cool.server.mapper.SeckillActivityMapper;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +22,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static com.cool.common.constant.ActivityConstant.*;
+import static com.cool.common.constant.MessageConstant.SUCCESS;
 import static com.cool.common.constant.RedisConstant.*;
 import static java.time.LocalTime.now;
 
@@ -49,160 +52,121 @@ public class SeckillServiceImpl implements SeckillService {
     private RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
     @Qualifier("seckillAsyncExecutor")
     private ThreadPoolExecutor seckillAsyncExecutor;
     
 
     
-    // Redis脚本：原子性检查库存和扣减（增强版，包含活动状态检查）
+    // Lua脚本：原子性检查库存和扣减（增强版，包含活动状态检查）
     private static final String STOCK_CHECK_SCRIPT = """
-    local cjson = require 'cjson'
     local stockKey = KEYS[1]
     local userKey = KEYS[2]
-    local activityKey = KEYS[3]
-    
-    -- 获取活动信息（JSON字符串）
-    local activityData = redis.call('get', activityKey)
-    if not activityData then
-        return -3
-    end
-    
-    -- 解析活动信息
-    local activity = cjson.decode(activityData)
-    local now = tonumber(redis.call('time')[1]) -- 当前时间戳（秒）
-    local startTime = tonumber(activity.startTime)
-    local endTime = tonumber(activity.endTime)
-    local status = tonumber(activity.status)
-    
-    -- 校验活动状态
-    if status ~= 1 then
-        return -4 -- 活动未开始/已结束
-    end
-    -- 校验活动时间
-    if now < startTime then
-        return -5 -- 活动未开始
-    end
-    if now > endTime then
-        return -6 -- 活动已结束
-    end
-    
-    -- 获取库存
+    -- 3. 库存校验（核心原子逻辑保留）
     local stock = tonumber(redis.call('get', stockKey))
     if not stock or stock <= 0 then
-        return 0
+        return 0  -- 库存不足
     end
     
-    -- 检查用户是否已参与
+    -- 4. 重复参与校验
     if redis.call('exists', userKey) == 1 then
-        return -1
+        return -1  -- 已参与
     end
     
-    -- 原子扣减库存
+    -- 5. 原子扣减库存 + 标记用户参与
     redis.call('decr', stockKey)
-    -- 标记用户已参与，过期时间与活动结束时间一致
     local ttl = redis.call('ttl', stockKey)
     if ttl > 0 then
         redis.call('set', userKey, '1', 'EX', ttl)
     else
         redis.call('set', userKey, '1', 'EX', 86400)
     end
-    return 1
-    """;
+    
+    return 1  -- 秒杀成功
+""";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SeckillResult doSeckill(Long userId, Long activityId) {
+    public void doSeckill(Long userId, Long activityId) {
         if (userId == null || activityId == null) {
             log.error("秒杀失败：userId或activityId为空，userId={}, activityId={}", userId, activityId);
-            return SeckillResult.SYSTEM_ERROR;
+            throw new BusinessException(ACTIVITY_STATUS_ERROR);
         }
 
         String stockKey = STOCK_KEY + activityId;
         String userKey = USER_KEY + activityId + ":" + userId;
         String activityKey = ACTIVITY_KEY + activityId;
 
-        try {
-            // 从Redis获取活动信息
-            Object activityObj = redisTemplate.opsForValue().get(activityKey);
-            if (activityObj == null) {
-                log.info("活动不存在或未预热: {}", activityId);
-                return SeckillResult.ACTIVITY_NOT_FOUND;
-            }
-            
-            // 执行Lua脚本原子性操作
-            DefaultRedisScript<Long> script = new DefaultRedisScript<>(STOCK_CHECK_SCRIPT, Long.class);
-            List<String> keys = Arrays.asList(stockKey, userKey, activityKey);
-            Long result = redisTemplate.execute(script, keys);
 
-            if (result == null) {
-                log.error("秒杀失败：Lua脚本返回null，userId={}, activityId={}", userId, activityId);
-                return SeckillResult.SYSTEM_ERROR;
-            }
-            if (result == -4) {
-                log.info("活动状态异常: {}", activityId);
-                return SeckillResult.ACTIVITY_STATUS_ERROR;
-            } else if (result == -5) {
-                log.info("活动未开始: {}", activityId);
-                return SeckillResult.ACTIVITY_NOT_STARTED;
-            } else if (result == -6) {
-                log.info("活动已结束: {}", activityId);
-                return SeckillResult.ACTIVITY_ENDED;
-            }
-
-            seckillAsyncExecutor.execute(() -> {
-                try {
-                    SeckillActivity activity = activityMapper.selectById(activityId);
-                    if (activity != null) {
-                        UserSeckillRecord record = new UserSeckillRecord();
-                        record.setUserId(userId);
-                        record.setActivityId(activityId);
-                        record.setStatus(0);
-                        record.setCreateTime(LocalDateTime.now());
-                        recordMapper.insert(record);
-
-                        userBackgroundService.addBackground(userId, activity.getBackgroundImage());
-                        activityMapper.decreaseStock(activityId, 1);
-                    }
-                } catch (Exception e) {
-                    log.error("秒杀异步落库失败: {}", e.getMessage(), e);
-                    // 以后再说     ！！！！    补偿逻辑（比如记录到消息队列，后续重试）
-                }
-            });
-
-            log.info("秒杀成功: userId={}, activityId={}", userId, activityId);
-            return SeckillResult.SUCCESS;
-        } catch (Exception e) {
-            log.error("秒杀失败: {}", e.getMessage(), e);
-            rollbackRedis(stockKey, userKey);
-            throw new RuntimeException("秒杀业务异常", e);
+        // 从Redis获取活动信息
+        Object activityObj = redisTemplate.opsForValue().get(activityKey);
+        if (activityObj == null) {
+            log.info("活动不存在或未预热: {}", activityId);
+            throw new BusinessException(ACTIVITY_NOT_FOUND);
         }
+
+        // 转换为 SeckillActivity 对象（Redis 序列化后是对象，可直接强转）
+        SeckillActivity activity = (SeckillActivity) activityObj;
+        LocalDateTime now = LocalDateTime.now();
+        // 校验活动状态
+        if (activity.getStatus() != 1) {
+            log.info("活动状态异常: {}, 状态={}", activityId, activity.getStatus());
+            throw new BusinessException(ACTIVITY_STATUS_ERROR);
+        }
+        // 校验活动时间
+        if (now.isBefore(activity.getStartTime())) {
+            log.info("活动未开始: {}, 开始时间={}", activityId, activity.getStartTime());
+            throw new BusinessException(ACTIVITY_NOT_STARTED);
+        }
+        if (now.isAfter(activity.getEndTime())) {
+            log.info("活动已结束: {}, 结束时间={}", activityId, activity.getEndTime());
+            throw new BusinessException(ACTIVITY_ENDED);
+        }
+
+        // 执行Lua脚本原子性操作
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>(STOCK_CHECK_SCRIPT, Long.class);
+        List<String> keys = Arrays.asList(stockKey, userKey);
+        Long result = redisTemplate.execute(script, keys);
+
+        if (result == null) {
+            log.error("秒杀失败：Lua脚本返回null，userId={}, activityId={}", userId, activityId);
+            throw new BusinessException(SYSTEM_ERROR);
+        }
+        if (result == 0) {
+            log.info("库存不足: {}", activityId);
+            throw new BusinessException(STOCK_INSUFFICIENT);
+        } else if (result == -1) {
+            log.info("用户已参与过活动: {}, {}", userId, activityId);
+            throw new BusinessException(ALREADY_PARTICIPATED);
+        } else if (result == -3) {
+            log.info("活动不存在: {}", activityId);
+            throw new BusinessException(ACTIVITY_NOT_FOUND);
+        }
+
+        seckillAsyncExecutor.execute(() -> {
+            try {
+                UserSeckillRecord record = new UserSeckillRecord();
+                record.setUserId(userId);
+                record.setActivityId(activityId);
+                record.setStatus(0);
+                record.setCreateTime(LocalDateTime.now());
+                recordMapper.insert(record);
+
+                userBackgroundService.addBackground(userId, activity.getBackgroundImage());
+                activityMapper.decreaseStock(activityId, 1);
+            } catch (Exception e) {
+                log.error("秒杀异步落库失败: userId={}, activityId={}, error={}", userId, activityId, e.getMessage(), e);
+            }
+        });
+
+        log.info("秒杀成功: userId={}, activityId={}", userId, activityId);
+
+
     }
 
-    private void rollbackRedis(String stockKey, String userKey) {
-        try {
-            redisTemplate.execute((RedisCallback<Boolean>) connection -> {
-                // 1. 先检查用户是否已参与，避免误回滚
-                if (connection.exists(userKey.getBytes(StandardCharsets.UTF_8))) {
-                    connection.multi();
-                    // 2. 原子回滚库存
-                    connection.incr(stockKey.getBytes(StandardCharsets.UTF_8));
-                    // 3. 删除用户参与记录
-                    connection.del(userKey.getBytes(StandardCharsets.UTF_8));
-                    // 4. 校验exec结果
-                    List<Object> results = connection.exec();
-                    if (results == null || results.size() != 2) {
-                        log.error("回滚库存exec执行失败: stockKey={}, userKey={}", stockKey, userKey);
-                        return false;
-                    }
-                    log.info("回滚库存成功: stockKey={}, userKey={}", stockKey, userKey);
-                    return true;
-                }
-                return false;
-            });
-        } catch (Exception ex) {
-            log.error("回滚库存失败: {}", ex.getMessage(), ex);
-        }
-    }
+
     
     @Override
     public SeckillActivity getActivityById(Long id) {
@@ -241,7 +205,7 @@ public class SeckillServiceImpl implements SeckillService {
         }
 
         // 2. 存储库存（用String.valueOf保证Redis中是原生数值）
-        redisTemplate.opsForValue().set(stockKey, String.valueOf(stock), expireSeconds, TimeUnit.SECONDS);
+        stringRedisTemplate.opsForValue().set(stockKey, String.valueOf(stock), expireSeconds, TimeUnit.SECONDS);
         // 3. 存储完整活动信息
         redisTemplate.opsForValue().set(activityKey, activity, expireSeconds, TimeUnit.SECONDS);
 

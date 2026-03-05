@@ -62,14 +62,12 @@ axiosInstance.interceptors.response.use(
       if (status === 401) {
         const originalRequest = error.config
 
-        // 如果不是刷新令牌的请求且没有正在刷新
         if (!originalRequest._retry && !isRefreshing) {
           originalRequest._retry = true
           isRefreshing = true
 
           const refreshToken = localStorage.getItem('refreshToken')
           if (!refreshToken) {
-            // 没有刷新令牌，跳转到登录页
             localStorage.clear()
             ElMessage.error('登录已过期，请重新登录')
             setTimeout(() => {
@@ -78,32 +76,25 @@ axiosInstance.interceptors.response.use(
             return Promise.reject(new Error('Token过期'))
           }
 
-          // 尝试刷新令牌
           return userApi.refreshToken(refreshToken)
             .then(response => {
               const data = response.data
               if (data) {
-                // 存储新的令牌
                 storeTokens(data)
                 
-                // 同步更新 Pinia store
                 const userStore = useUserStore()
                 userStore.user = data
                 userStore.userAvatar = data.avatar || DEFAULT_AVATAR
                 
-                // 更新请求头
                 axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
                 originalRequest.headers.Authorization = `Bearer ${data.token}`
-                // 处理等待的请求
                 processQueue(null)
-                // 重新发送原始请求
                 return axiosInstance(originalRequest)
               } else {
                 throw new Error('刷新令牌失败')
               }
             })
             .catch(refreshError => {
-              // 刷新令牌失败，跳转到登录页
               processQueue(refreshError)
               localStorage.clear()
               ElMessage.error('登录已过期，请重新登录')
@@ -116,13 +107,11 @@ axiosInstance.interceptors.response.use(
               isRefreshing = false
             })
         } else {
-          // 正在刷新令牌，将请求加入队列
           return new Promise((resolve, reject) => {
             refreshSubscribers.push(error => {
               if (error) {
                 reject(error)
               } else {
-                // 刷新成功，更新请求头并重试
                 originalRequest.headers.Authorization = `Bearer ${localStorage.getItem('token')}`
                 resolve(axiosInstance(originalRequest))
               }
@@ -131,7 +120,6 @@ axiosInstance.interceptors.response.use(
         }
       }
       const message = error.response.data?.message || error.message || '请求失败'
-      ElMessage.error(message)
       return Promise.reject(new Error(message))
     }
     ElMessage.error('网络错误，请检查网络连接')

@@ -30,4 +30,6 @@ public class MessageConstant {
 
     public static final String USERNAME_NOT_NULL = "用户名不能为空";
     public static final String PASSWORD_NOT_NULL = "密码不能为空";
+    public static final String SYSTEM_ERROR = "系统错误";
+    public static final String USER_DISABLED ="用户异常" ;
 }
