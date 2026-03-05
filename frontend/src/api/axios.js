@@ -1,6 +1,9 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import userApi from './userApi'
+import { useUserStore } from '../store/user'
+
+const DEFAULT_AVATAR = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 
 const axiosInstance = axios.create({
   baseURL: 'http://localhost:8082/api',
@@ -28,10 +31,13 @@ function storeTokens(data) {
   localStorage.setItem('user', JSON.stringify(data))
 }
 
+const NO_AUTH_URLS = ['/user/login', '/user/register', '/user/refresh']
+
 axiosInstance.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token')
-    if (token) {
+    const isNoAuth = NO_AUTH_URLS.some(url => config.url.includes(url))
+    if (token && !isNoAuth) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -55,12 +61,12 @@ axiosInstance.interceptors.response.use(
       const status = error.response.status
       if (status === 401) {
         const originalRequest = error.config
-        
+
         // 如果不是刷新令牌的请求且没有正在刷新
         if (!originalRequest._retry && !isRefreshing) {
           originalRequest._retry = true
           isRefreshing = true
-          
+
           const refreshToken = localStorage.getItem('refreshToken')
           if (!refreshToken) {
             // 没有刷新令牌，跳转到登录页
@@ -71,7 +77,7 @@ axiosInstance.interceptors.response.use(
             }, 1000)
             return Promise.reject(new Error('Token过期'))
           }
-          
+
           // 尝试刷新令牌
           return userApi.refreshToken(refreshToken)
             .then(response => {
@@ -79,6 +85,12 @@ axiosInstance.interceptors.response.use(
               if (data) {
                 // 存储新的令牌
                 storeTokens(data)
+                
+                // 同步更新 Pinia store
+                const userStore = useUserStore()
+                userStore.user = data
+                userStore.userAvatar = data.avatar || DEFAULT_AVATAR
+                
                 // 更新请求头
                 axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
                 originalRequest.headers.Authorization = `Bearer ${data.token}`

@@ -1,5 +1,6 @@
 package com.cool.server.service;
 
+import com.cool.common.enumeration.SeckillResult;
 import com.cool.pojo.entity.SeckillActivity;
 import com.cool.pojo.entity.UserBackground;
 import java.util.List;
@@ -12,7 +13,7 @@ public interface SeckillService {
     /**
      * 执行秒杀
      */
-    boolean doSeckill(Long userId, Long activityId);
+    SeckillResult doSeckill(Long userId, Long activityId);
     
     /**
      * 获取活动详情
@@ -32,7 +33,7 @@ public interface SeckillService {
     /**
      * 初始化活动库存到Redis
      */
-    void initStock(Long activityId);
+    void initStock(Long activityId,int stock,long expireTime);
     
     /**
      * 获取活动列表
@@ -58,4 +59,9 @@ public interface SeckillService {
      * 删除活动
      */
     void deleteActivity(Long id);
+    
+    /**
+     * 更新活动状态
+     */
+    void updateActivityStatus();
 }

@@ -98,7 +98,6 @@ const route = useRoute()
 const userStore = useUserStore()
 const chatStore = useChatStore()
 const searchKeyword = ref('')
-let tokenValidationInterval = null
 let messageCheckInterval = null
 
 // 签到相关状态
@@ -192,15 +191,6 @@ const getUserPoints = async () => {
   }
 }
 
-const startTokenValidation = () => {
-  // 每30秒验证一次token的有效性
-  tokenValidationInterval = setInterval(async () => {
-    if (userStore.isLoggedIn) {
-      await userStore.validateToken()
-    }
-  }, 30000)
-}
-
 const checkUnreadMessages = async () => {
   // 使用chat store中的未读消息计数
   if (userStore.isLoggedIn) {
@@ -240,27 +230,20 @@ watch(
 
 onMounted(async () => {
   await userStore.initAuth()
-  startTokenValidation()
   startMessageCheck()
-  await checkUnreadMessages() // 初始检查
+  await checkUnreadMessages()
   
-  // 如果用户已登录，启动心跳服务
   if (userStore.isLoggedIn) {
     heartbeatService.start()
-    // 检查签到状态和获取积分
     checkCheckinStatus()
     getUserPoints()
   }
 })
 
 onUnmounted(() => {
-  if (tokenValidationInterval) {
-    clearInterval(tokenValidationInterval)
-  }
   if (messageCheckInterval) {
     clearInterval(messageCheckInterval)
   }
-  // 停止心跳服务
   heartbeatService.stop()
 })
 </script>

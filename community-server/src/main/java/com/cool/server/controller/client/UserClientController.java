@@ -1,5 +1,6 @@
 package com.cool.server.controller.client;
 
+import com.cool.common.Result;
 import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.dto.UserLoginDTO;
 import com.cool.pojo.dto.UserRegisterDTO;
@@ -7,6 +8,7 @@ import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.UserLoginVO;
 import com.cool.pojo.vo.UserVO;
 import com.cool.server.service.UserService;
+import com.cool.server.service.impl.UserServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -106,12 +108,12 @@ public class UserClientController {
 
     @Operation(summary = "刷新令牌", description = "使用刷新令牌获取新的访问令牌和刷新令牌")
     @PostMapping("/refresh")
-    public UserLoginVO refreshToken(@RequestBody Map<String, String> request) {
+    public Result<UserLoginVO> refreshToken(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
         String deviceId = request.get("deviceId");
         if (refreshToken == null) {
             throw new RuntimeException("刷新令牌不能为空");
         }
-        return userService.refreshToken(refreshToken,deviceId);
+        return Result.success(userService.refreshToken(refreshToken,deviceId));
     }
 }

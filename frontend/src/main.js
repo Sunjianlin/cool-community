@@ -27,6 +27,7 @@ import './style.css'
 
 const routes = [
   { path: '/', component: HomePage, meta: { requiresAuth: true } },
+  { path: '/profile', component: ProfilePage, meta: { requiresAuth: true } },
   { path: '/topics', component: TopicsPage, meta: { requiresAuth: true } },
   { path: '/topic/:id', component: TopicDetailPage, meta: { requiresAuth: true } },
   { path: '/post/:id', component: PostDetailPage, meta: { requiresAuth: true } },
@@ -55,6 +56,12 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
+  
+  // 登录页和注册页不需要验证
+  if (to.path === '/login' || to.path === '/register') {
+    next()
+    return
+  }
   
   // 确保用户状态已初始化
   if (!userStore.isInitialized) {

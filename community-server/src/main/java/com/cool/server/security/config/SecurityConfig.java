@@ -1,5 +1,6 @@
 package com.cool.server.security.config;
 
+import com.cool.common.constant.RoleConstant;
 import com.cool.server.security.filter.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,7 +36,7 @@ public class SecurityConfig {
                         .requestMatchers("/user/login", "/user/register", "/user/refresh").permitAll()
                         .requestMatchers("/static/**", "/error", "/swagger-ui/**", "/swagger-ui.html",
                                 "/v3/api-docs/**", "/webjars/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("1")
+                        .requestMatchers("/admin/**").hasAnyAuthority("ROLE_1","ROLE_2","ROLE_3")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

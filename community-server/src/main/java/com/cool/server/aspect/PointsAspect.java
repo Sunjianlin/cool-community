@@ -1,6 +1,7 @@
 package com.cool.server.aspect;
 
 import com.cool.common.constant.PointsConstant;
+import com.cool.common.enumeration.SeckillResult;
 import com.cool.server.context.BaseContext;
 import com.cool.server.service.UserPointsService;
 import org.aspectj.lang.JoinPoint;
@@ -140,19 +141,20 @@ public class PointsAspect {
     @AfterReturning(value = "seckillSuccessPointcut()", returning = "result")
     public void addPointsAfterSeckillSuccess(JoinPoint joinPoint, Object result) {
         // 检查秒杀是否成功
-        if (result != null && (Boolean) result) {
-            Object[] args = joinPoint.getArgs();
-            if (args.length >= 1) {
-                Long userId = (Long) args[0];
-                if (userId != null) {
-                    // 临时设置目标用户ID到BaseContext，以便在addPoints方法中获取
-                    Long originalUserId = BaseContext.getCurrentId();
-                    BaseContext.setCurrentId(userId);
-                    try {
-                        userPointsService.addPoints(PointsConstant.SECKILL_SUCCESS_POINTS, PointsConstant.TYPE_SECKILL_SUCCESS);
-                    } finally {
-                        // 恢复原始用户ID
-                        BaseContext.setCurrentId(originalUserId);
+        if (result instanceof SeckillResult) {
+            SeckillResult seckillResult = (SeckillResult) result;
+            if (seckillResult.isSuccess()) {
+                Object[] args = joinPoint.getArgs();
+                if (args.length >= 1) {
+                    Long userId = (Long) args[0];
+                    if (userId != null) {
+                        Long originalUserId = BaseContext.getCurrentId();
+                        BaseContext.setCurrentId(userId);
+                        try {
+                            userPointsService.addPoints(PointsConstant.SECKILL_SUCCESS_POINTS, PointsConstant.TYPE_SECKILL_SUCCESS);
+                        } finally {
+                            BaseContext.setCurrentId(originalUserId);
+                        }
                     }
                 }
             }

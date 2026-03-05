@@ -32,6 +32,7 @@
         <aliyun-oss.version>3.17.4</aliyun-oss.version>
         <springdoc.version>2.3.0</springdoc.version>
         <javax.version>1.3.2</javax.version>
+        <jackson.version>2.15.3</jackson.version>
     </properties>
 
     <dependencyManagement>
@@ -126,6 +127,13 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt</artifactId>
                 <version>${jjwt.version}</version>
+            </dependency>
+
+            <!-- Jackson 支持 Java 8 时间类型 -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${jackson.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

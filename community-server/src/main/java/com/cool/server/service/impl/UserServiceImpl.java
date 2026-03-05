@@ -105,7 +105,7 @@ public class UserServiceImpl implements UserService {
         String refreshToken = jwtUtil.generateRefreshToken(dto.getUsername(),user.getId(),dto.getDeviceId());
         
 
-        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + user.getId();
+        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + user.getId() ;
         stringRedisTemplate.opsForValue().set(refreshTokenKey, refreshToken, RedisConstant.REFRESH_TOKEN_EXPIRE_TIME, TimeUnit.SECONDS);
         
         log.info("用户登录成功，生成双token: userId={}", user.getId());
@@ -403,7 +403,7 @@ public class UserServiceImpl implements UserService {
 
         // ========== 5. 校验Redis中的刷新令牌（按jti存储，支持精准注销） ==========
         // Redis Key规范：user:token:refresh:{userId}:{jti}
-        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" + jti;
+        String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId;
         String storedRefreshToken = stringRedisTemplate.opsForValue().get(refreshTokenKey);
 
         // 两种无效场景：1. Redis中无此令牌 2. 令牌内容不匹配
@@ -430,6 +430,9 @@ public class UserServiceImpl implements UserService {
         String newAccessToken = jwtUtil.generateAccessToken(accessClaims);
         // 生成新的Refresh Token（携带userId、deviceId）
         String newRefreshToken = jwtUtil.generateRefreshToken(user.getUsername(), user.getId(), deviceId);
+
+        log.info("Access token={}", newAccessToken);
+        log.info("Refresh token={}", newRefreshToken);
         String newRefreshTokenJti = jwtUtil.getJti(newRefreshToken); // 新令牌的jti
 
         // ========== 8. 更新Redis中的刷新令牌 ==========
@@ -437,7 +440,7 @@ public class UserServiceImpl implements UserService {
         stringRedisTemplate.delete(refreshTokenKey);
 
         // 8.2 存储新的刷新令牌（Key包含新jti，过期时间与令牌一致）
-        String newRefreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" + newRefreshTokenJti;
+        String newRefreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" ;
         stringRedisTemplate.opsForValue().set(
                 newRefreshTokenKey,
                 newRefreshToken,

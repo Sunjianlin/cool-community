@@ -18,7 +18,7 @@ export const useUserStore = defineStore('user', {
     getUserAvatar: (state) => state.userAvatar,
     isAdmin: (state) => {
       if (!state.user) return false
-      return state.user.role >= 1
+      return state.user.role >= 2
     }
   },
   
@@ -97,6 +97,7 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem('user')
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
+      this.isInitialized = true
     },
     
     setLoggedIn(userData) {
@@ -111,7 +112,6 @@ export const useUserStore = defineStore('user', {
       
       if (!token) {
         this.clearAuth()
-        this.isInitialized = true
         return false
       }
       
@@ -120,19 +120,16 @@ export const useUserStore = defineStore('user', {
         if (response.code === 200 && response.data) {
           this.setLoggedIn(response.data)
           localStorage.setItem('user', JSON.stringify(response.data))
-          this.isInitialized = true
           return true
         } else {
-          // 如果后端返回错误，清除认证信息
           this.clearAuth()
-          this.isInitialized = true
           return false
         }
       } catch (error) {
         console.error('Token验证失败:', error)
-        // 如果请求失败，清除认证信息
-        this.clearAuth()
-        this.isInitialized = true
+        if (error.response?.status === 401) {
+          this.clearAuth()
+        }
         return false
       }
     },
@@ -144,6 +141,7 @@ export const useUserStore = defineStore('user', {
         // 如果token有效，启动token检测
         this.startTokenCheck()
       }
+      this.isInitialized = true
     },
     
     // 启动token检测

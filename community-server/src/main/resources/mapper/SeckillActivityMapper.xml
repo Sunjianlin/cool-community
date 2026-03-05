@@ -18,6 +18,13 @@
         LIMIT 1
     </select>
     
+    <select id="selectNextActivity" resultType="com.cool.pojo.entity.SeckillActivity">
+        SELECT * FROM seckill_activity 
+        WHERE start_time > NOW() AND status != 3
+        ORDER BY start_time ASC
+        LIMIT 1
+    </select>
+    
     <insert id="insert" parameterType="com.cool.pojo.entity.SeckillActivity">
         INSERT INTO seckill_activity (
             activity_name, background_image, start_time, end_time, 

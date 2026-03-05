@@ -1,5 +1,7 @@
 package com.cool.server.controller.client;
 
+import com.cool.common.Result;
+import com.cool.common.enumeration.SeckillResult;
 import com.cool.pojo.entity.SeckillActivity;
 import com.cool.server.context.BaseContext;
 import com.cool.server.service.SeckillService;
@@ -9,6 +11,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,7 +20,7 @@ import java.util.Map;
  */
 @Tag(name = "秒杀接口", description = "秒杀活动相关接口")
 @RestController
-@RequestMapping("/api/seckill")
+@RequestMapping("/seckill")
 public class SeckillController {
     
     @Autowired
@@ -32,24 +36,35 @@ public class SeckillController {
     
     @Operation(summary = "执行秒杀", security = @SecurityRequirement(name = "Bearer"))
     @PostMapping("/do/{id}")
-    public Map<String, Object> doSeckill(
+    public Result<Boolean> doSeckill(
             @Parameter(description = "活动ID") @PathVariable Long id) {
         Long userId = BaseContext.getCurrentId();
-        boolean result = seckillService.doSeckill(userId, id);
-        return Map.of("code", 200, "data", result);
+        SeckillResult result = seckillService.doSeckill(userId, id);
+        if (result.isSuccess()) {
+            return Result.success(true);
+        } else {
+            return Result.error(result.getCode(), result.getMessage());
+        }
     }
     
-    @Operation(summary = "获取次日活动", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/next-day")
-    public Map<String, Object> getNextDayActivity() {
+    @Operation(summary = "获取下一个活动", security = @SecurityRequirement(name = "Bearer"))
+    @GetMapping("/next")
+    public Map<String, Object> getNextActivity() {
         SeckillActivity activity = seckillService.getNextDayActivity();
         return Map.of("code", 200, "data", activity);
     }
     
-    @Operation(summary = "检查是否有次日活动", security = @SecurityRequirement(name = "Bearer"))
-    @GetMapping("/has-next-day")
-    public Map<String, Object> hasNextDayActivity() {
+    @Operation(summary = "检查是否有即将开始的活动", security = @SecurityRequirement(name = "Bearer"))
+    @GetMapping("/has-next")
+    public Map<String, Object> hasNextActivity() {
         boolean hasActivity = seckillService.hasNextDayActivity();
         return Map.of("code", 200, "data", hasActivity);
+    }
+
+    @Operation(summary = "获取活动列表", security = @SecurityRequirement(name = "Bearer"))
+    @GetMapping("/list")
+    public Map<String, Object> getActivityList() {
+        List<SeckillActivity> activities = seckillService.getActivityList();
+        return Map.of("code", 200, "data", activities);
     }
 }

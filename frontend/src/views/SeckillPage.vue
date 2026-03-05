@@ -32,7 +32,7 @@
             @click="doSeckill"
             class="seckill-btn"
           >
-            {{ isSeckilling ? '抢购中...' : (canSeckill ? '立即抢购' : '活动未开始') }}
+            {{ seckillBtnText }}
           </el-button>
         </div>
       </div>
@@ -57,7 +57,24 @@ const canSeckill = computed(() => {
   if (!activity.value) return false
   const now = new Date().getTime()
   const startTime = new Date(activity.value.startTime).getTime()
-  return now >= startTime && activity.value.status === 1
+  const endTime = new Date(activity.value.endTime).getTime()
+  return now >= startTime && now <= endTime && activity.value.status === 1
+})
+
+const seckillBtnText = computed(() => {
+  if (isSeckilling.value) return '抢购中...'
+  if (!activity.value) return '加载中...'
+  if (activity.value.status === 0) return '活动未开始'
+  if (activity.value.status === 2) return '活动已结束'
+  if (activity.value.status === 3) return '活动已下架'
+  
+  const now = new Date().getTime()
+  const startTime = new Date(activity.value.startTime).getTime()
+  const endTime = new Date(activity.value.endTime).getTime()
+  
+  if (now < startTime) return '活动未开始'
+  if (now > endTime) return '活动已结束'
+  return '立即抢购'
 })
 
 const loadActivity = async () => {
@@ -82,14 +99,14 @@ const doSeckill = async () => {
     const response = await seckillApi.doSeckill(activityId.value)
     if (response.code === 200 && response.data) {
       ElMessage.success('抢购成功！')
-      // 跳转到个人中心背景图设置页面
       router.push('/profile/background')
     } else {
-      ElMessage.error('抢购失败，请重试')
+      ElMessage.error(response.message || '抢购失败，请重试')
     }
   } catch (error) {
     console.error('抢购失败:', error)
-    ElMessage.error('抢购失败，请重试')
+    const errorMessage = error.response?.data?.message || error.message || '抢购失败，请重试'
+    ElMessage.error(errorMessage)
   } finally {
     isSeckilling.value = false
   }

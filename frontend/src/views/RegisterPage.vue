@@ -156,16 +156,37 @@ const handleRegister = async () => {
   margin-top: 32px;
 }
 
-.form-actions .btn {
+.login-form .form-actions button[type="submit"] {
   width: 100%;
   padding: 14px;
   font-size: 16px;
   font-weight: 500;
+  text-align: center !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  border-radius: 8px;
+  background-color: #3498db;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.form-actions .btn:disabled {
+.login-form .form-actions button[type="submit"]:hover {
+  background-color: #2980b9;
+  transform: translateY(-1px);
+}
+
+.login-form .form-actions button[type="submit"]:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  text-align: center !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #3498db;
+  color: white;
 }
 
 .form-footer {

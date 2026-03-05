@@ -21,4 +21,10 @@ public class RedisConstant {
     public static final long TOKEN_EXPIRE_TIME = 3 * 60 * 60;
     public static final long REFRESH_TOKEN_EXPIRE_TIME = 7 * 24 * 60 * 60;
     public static final long VERIFY_CODE_EXPIRE_TIME = 5 * 60;
+
+    // Redis键前缀
+    public static final String STOCK_KEY = "seckill:stock:";
+    public static final String USER_KEY = "seckill:user:";
+    public static final String ACTIVITY_KEY = "seckill:activity:";
+    public static final String LOCK_KEY = "seckill:lock:";
 }

@@ -27,7 +27,7 @@ public class AdminAspect {
         }
         
         Integer role = BaseContext.getCurrentRole();
-        if (role == null || role < 1) {
+        if (role == null || role < 2) {
             throw new RuntimeException("权限不足，需要管理员权限");
         }
     }

@@ -3,6 +3,9 @@ package com.cool.server.mapper;
 import com.cool.pojo.entity.SeckillActivity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -28,6 +31,11 @@ public interface SeckillActivityMapper {
     SeckillActivity selectNextDayActivity();
     
     /**
+     * 查询下一个未开始的活动
+     */
+    SeckillActivity selectNextActivity();
+    
+    /**
      * 插入活动
      */
     void insert(SeckillActivity activity);
@@ -46,4 +54,11 @@ public interface SeckillActivityMapper {
      * 查询活动列表
      */
     List<SeckillActivity> list();
+
+    @Update("UPDATE seckill_activity SET stock=stock-1 where id=#{activityId}")
+    void decreaseStock(Long activityId, int i);
+
+
+    @Select("SELECT * from seckill_activity where activity_name=#{activityName}")
+    SeckillActivity selectByName(String activityName);
 }

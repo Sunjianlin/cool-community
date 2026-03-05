@@ -51,16 +51,37 @@
       </div>
       
       <!-- 操作按钮 -->
-      <div class="profile-actions">
-        <button class="btn btn-primary" @click="showEditDialog = true">
-          <span class="btn-icon">✏️</span>
-          编辑资料
-        </button>
-        <button class="btn btn-secondary" @click="logout">
-          <span class="btn-icon">🚪</span>
-          退出登录
-        </button>
+    <div class="profile-actions">
+      <button class="btn btn-primary" @click="showEditDialog = true">
+        <span class="btn-icon">✏️</span>
+        编辑资料
+      </button>
+      <button class="btn btn-secondary" @click="logout">
+        <span class="btn-icon">🚪</span>
+        退出登录
+      </button>
+      <button 
+        :class="['btn', checkinStatus ? 'btn-success' : 'btn-warning']" 
+        @click="handleCheckin"
+        :disabled="checkinStatus || checkingIn"
+      >
+        <span class="btn-icon" v-if="!checkinStatus">🎁</span>
+        <span class="btn-icon" v-else>✅</span>
+        {{ checkinStatus ? '已签到' : '每日签到' }}
+      </button>
+    </div>
+    
+    <!-- 签到状态 -->
+    <div class="checkin-status" v-if="userStore.isLoggedIn">
+      <div class="checkin-info">
+        <span class="checkin-icon">📅</span>
+        <span v-if="checkinStatus" class="checkin-text success">今日已签到，获得 {{ dailyPoints }} 积分</span>
+        <span v-else class="checkin-text">每日签到可获得 {{ dailyPoints }} 积分</span>
+        <span class="consecutive-days" v-if="consecutiveDays > 0">
+          连续签到 {{ consecutiveDays }} 天
+        </span>
       </div>
+    </div>
     </div>
     
     <!-- 我的帖子 -->
@@ -168,6 +189,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../store/user'
 import userApi from '../api/userApi'
 import postApi from '../api/postApi'
+import checkinApi from '../api/checkinApi'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
@@ -197,6 +219,12 @@ const editForm = ref({
   avatar: '',
   bio: ''
 })
+
+// 签到相关状态
+const checkinStatus = ref(false) // 今日是否已签到
+const checkingIn = ref(false) // 签到中
+const dailyPoints = ref(10) // 每日签到获得的积分
+const consecutiveDays = ref(0) // 连续签到天数
 
 const uploadUrl = computed(() => 'http://localhost:8082/api/user/avatar')
 
@@ -328,6 +356,43 @@ const getStatusClass = (status) => {
   }
 }
 
+// 加载签到状态
+const loadCheckinStatus = async () => {
+  if (!userStore.isLoggedIn) return
+  
+  try {
+    const response = await checkinApi.hasCheckedInToday()
+    checkinStatus.value = response.data
+  } catch (error) {
+    console.error('加载签到状态失败:', error)
+  }
+}
+
+// 执行签到
+const handleCheckin = async () => {
+  if (checkinStatus.value || checkingIn.value) return
+  
+  checkingIn.value = true
+  try {
+    const response = await checkinApi.checkin()
+    const points = response.data
+    checkinStatus.value = true
+    dailyPoints.value = points
+    
+    // 显示签到成功弹窗
+    ElMessage.success({
+      message: `签到成功！获得 ${points} 积分`,
+      duration: 3000,
+      showClose: true
+    })
+  } catch (error) {
+    console.error('签到失败:', error)
+    ElMessage.error('签到失败，请稍后重试')
+  } finally {
+    checkingIn.value = false
+  }
+}
+
 // 监听登录状态变化，重新加载数据
 watch(
   () => [userStore.isLoggedIn, userStore.user],
@@ -335,6 +400,7 @@ watch(
     if (isLoggedIn && user) {
       await loadUserProfile()
       await loadUserPosts()
+      await loadCheckinStatus()
     }
   },
   { deep: true }
@@ -344,6 +410,7 @@ onMounted(async () => {
   const isLoggedIn = await loadUserProfile()
   if (isLoggedIn) {
     await loadUserPosts()
+    await loadCheckinStatus()
   }
 })
 </script>
@@ -608,6 +675,96 @@ onMounted(async () => {
 
 .btn-icon {
   font-size: 18px;
+}
+
+/* 签到状态样式 */
+.checkin-status {
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(46, 204, 113, 0.05);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+  transition: var(--transition);
+}
+
+.checkin-status:hover {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: rgba(46, 204, 113, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+}
+
+.checkin-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkin-icon {
+  font-size: 20px;
+  color: var(--success-color);
+}
+
+.checkin-text {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.checkin-text.success {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.consecutive-days {
+  font-size: 14px;
+  color: var(--text-light);
+  background: rgba(46, 204, 113, 0.1);
+  padding: 4px 12px;
+  border-radius: 16px;
+  margin-left: auto;
+  transition: var(--transition);
+}
+
+.consecutive-days:hover {
+  background: rgba(46, 204, 113, 0.2);
+  color: var(--success-color);
+  transform: translateY(-2px);
+}
+
+/* 签到按钮样式 */
+.btn-warning {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  border: 1px solid #e67e22;
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  border-color: #d35400;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #27ae60, #229954);
+  border: 1px solid #229954;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #229954, #1e8449);
+  border-color: #1e8449;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* 帖子区域 */
