@@ -31,7 +31,7 @@ public class GlobalExceptionHandler {
     public Result<Void> handleRuntimeException(RuntimeException e) {
         log.error("运行时异常: ", e);
         String msg = e.getMessage() != null ? e.getMessage() : "请求失败";
-        return Result.fail(400, msg); // 替换Map为Result
+        return Result.fail(400, msg);
     }
 
     // 处理参数校验异常
@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
         log.error("参数校验异常: ", e);
         String msg = e.getBindingResult().getFieldError() != null ?
                 e.getBindingResult().getFieldError().getDefaultMessage() : MessageConstant.PARAM_ERROR;
-        return Result.fail(400, msg); // 替换Map为Result
+        return Result.fail(400, msg);
     }
 
 

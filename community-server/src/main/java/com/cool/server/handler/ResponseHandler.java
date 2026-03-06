@@ -32,7 +32,7 @@ public class ResponseHandler implements ResponseBodyAdvice<Object> {
         if (path.contains("/v3/api-docs") || path.contains("/swagger-ui")) {
             return body;
         }
-        // 新增：如果已经是 Result 类型，直接返回
+
         if (body instanceof Result) {
             return body;
         }

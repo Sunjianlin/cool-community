@@ -80,6 +80,12 @@ public class OnlineStatusServiceImpl implements OnlineStatusService {
             String currentTime = LocalDateTime.now().format(formatter);
             hashOps.put(statusKey, "heartbeatTime", currentTime);
             hashOps.put(statusKey, "lastActiveTime", currentTime);
+
+            // 如果没有状态字段，设置为在线
+            Object statusObj = hashOps.get(statusKey, "status");
+            if (statusObj == null) {
+                hashOps.put(statusKey, "status", OnlineStatus.ONLINE.name());
+            }
             
             // 重置过期时间
             redisTemplate.expire(statusKey, HEARTBEAT_TIMEOUT, java.util.concurrent.TimeUnit.SECONDS);

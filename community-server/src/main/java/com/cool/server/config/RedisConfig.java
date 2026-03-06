@@ -23,7 +23,7 @@ public class RedisConfig {
         ObjectMapper objectMapper = new ObjectMapper();
         // 注册Java8时间模块
         objectMapper.registerModule(new JavaTimeModule());
-        // 关键：添加类型信息，让Jackson知道反序列化的目标类型
+
         objectMapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
                 ObjectMapper.DefaultTyping.NON_FINAL,

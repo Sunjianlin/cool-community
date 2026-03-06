@@ -116,6 +116,9 @@ public class UserServiceImpl implements UserService {
         BeanUtil.copyProperties(user, vo);
         vo.setToken(accessToken);
         vo.setRefreshToken(refreshToken);
+
+        // 设置用户在线状态
+        onlineStatusService.updateStatus(user.getId(), OnlineStatus.ONLINE);
         
         return vo;
     }
@@ -133,7 +136,7 @@ public class UserServiceImpl implements UserService {
 //            throw new BusinessException(MessageConstant.PHONE_NOT_NULL);
 //        }
 
-        // 2. 统一用户名格式（可选：转小写，避免大小写重复）
+        // 2. 统一用户名格式
         String username = dto.getUsername().trim().toLowerCase();
 
         // 3. 校验用户名是否已存在
@@ -143,11 +146,11 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(MessageConstant.USERNAME_EXISTS);
         }
 
-        // 4. 封装用户对象（核心：改用BCrypt加密密码）
+        // 4. 封装用户对象，改用BCrypt加密密码
         User user = new User();
         BeanUtil.copyProperties(dto, user);
         user.setUsername(username); // 存入统一格式的用户名
-        // 关键修复：用PasswordEncoder加密密码（BCrypt），替代MD5
+
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         user.setStatus(1); // 1=启用
         user.setRole(0);   // 0=普通用户
@@ -366,13 +369,13 @@ public class UserServiceImpl implements UserService {
     }
 
     public UserLoginVO refreshToken(String refreshToken, String deviceId) {
-        // ========== 1. 基础校验：刷新令牌非空 ==========
+        //1. 基础校验：刷新令牌非空
         if (refreshToken == null || refreshToken.isBlank()) {
             log.error("刷新令牌为空");
             throw new BusinessException(MessageConstant.REFRESH_TOKEN_EMPTY);
         }
 
-        // ========== 2. 校验刷新令牌有效性（JWT层面） ==========
+        //2. 校验刷新令牌有效性（JWT层面）
         // 解析令牌（JwtUtil已做异常处理，返回null则无效）
         Claims refreshTokenClaims = jwtUtil.parseToken(refreshToken);
         if (refreshTokenClaims == null) {
@@ -393,7 +396,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(MessageConstant.REFRESH_TOKEN_EXPIRED);
         }
 
-        // ========== 3. 提取刷新令牌中的用户信息 ==========
+        //3. 提取刷新令牌中的用户信息
         Long userId = jwtUtil.getUserId(refreshToken);
         String username = jwtUtil.getUsername(refreshToken);
         String jti = jwtUtil.getJti(refreshToken); // 获取令牌唯一标识
@@ -403,7 +406,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(MessageConstant.REFRESH_TOKEN_INVALID);
         }
 
-        // ========== 4. 校验设备绑定（增强安全性，兼容deviceId=null场景） ==========
+        //4. 校验设备绑定（增强安全性，兼容deviceId=null场景）
         String tokenDeviceId = refreshTokenClaims.get("deviceId", String.class);
         if (deviceId != null && !deviceId.isBlank()) {
             // 前端传了deviceId，必须匹配（兜底token中的deviceId，避免null）
@@ -417,7 +420,7 @@ public class UserServiceImpl implements UserService {
             deviceId = tokenDeviceId;
         }
 
-        // ========== 5. 校验Redis中的刷新令牌（按jti存储，精准校验） ==========
+        //5. 校验Redis中的刷新令牌（按jti存储，精准校验）
         // 修复：Redis Key规范 = user:token:refresh:{userId}:{jti}
         String refreshTokenKey = RedisConstant.USER_TOKEN_KEY + "refresh:" + userId + ":" + jti;
         String storedRefreshToken = stringRedisTemplate.opsForValue().get(refreshTokenKey);
@@ -428,7 +431,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(MessageConstant.REFRESH_TOKEN_EXPIRED);
         }
 
-        // ========== 6. 校验用户状态（补充：是否禁用） ==========
+        //6. 校验用户状态（补充：是否禁用）
         User user = userMapper.getById(userId);
         if (user == null) {
             log.error("用户不存在，userId={}", userId);
@@ -440,7 +443,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(MessageConstant.USER_DISABLED);
         }
 
-        // ========== 7. 生成新令牌（优化：仅必要时更换Refresh Token） ==========
+        // 7. 生成新令牌（优化：仅必要时更换Refresh Token）
         // 7.1 构建Access Token的Claims
         Map<String, Object> accessClaims = new HashMap<>();
         accessClaims.put("userId", user.getId());
@@ -464,7 +467,7 @@ public class UserServiceImpl implements UserService {
             log.info("Refresh Token剩余时间充足，复用原令牌，userId={}, jti={}", userId, jti);
         }
 
-        // ========== 8. 更新Redis中的刷新令牌（仅生成新Token时执行） ==========
+        // 8. 更新Redis中的刷新令牌（仅生成新Token时执行）
         try {
             if (!newRefreshToken.equals(refreshToken)) {
                 // 8.1 删除旧的刷新令牌（精准注销）
@@ -493,7 +496,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("令牌刷新失败，请重试");
         }
 
-        // ========== 9. 构建返回VO ==========
+        //9. 构建返回VO
         UserLoginVO vo = new UserLoginVO();
         BeanUtil.copyProperties(user, vo);
         vo.setToken(newAccessToken);

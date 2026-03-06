@@ -28,11 +28,11 @@
             <span class="points-count">{{ userPoints }}</span>
           </div>
           <template v-if="userStore.isLoggedIn">
-            <!-- 私信入口 -->
-            <router-link to="/chat" class="message-icon-wrapper">
-              <span class="message-icon">💬</span>
-              <span v-if="chatStore.unreadCount > 0" class="message-badge">{{ chatStore.unreadCount }}</span>
-            </router-link>
+            <!-- 消息通知入口 -->
+            <a href="javascript:void(0)" class="message-icon-wrapper" @click="openMessageCenter">
+              <span class="message-icon">🔔</span>
+              <span v-if="totalUnreadCount > 0" class="message-badge">{{ totalUnreadCount > 99 ? '99+' : totalUnreadCount }}</span>
+            </a>
             <el-dropdown trigger="click">
               <div class="avatar-wrapper">
                 <img :src="userStore.userAvatar" alt="用户头像" class="avatar-img" />
@@ -41,7 +41,7 @@
                 <el-dropdown-menu>
                   <el-dropdown-item @click="$router.push(`/user/${userStore.user?.id}`)">个人中心</el-dropdown-item>
                   <el-dropdown-item @click="editProfile">编辑资料</el-dropdown-item>
-                  <el-dropdown-item @click="$router.push('/chat')">私信</el-dropdown-item>
+                  <el-dropdown-item @click="openMessageCenter">消息通知</el-dropdown-item>
                   <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -137,6 +137,10 @@ const editProfile = () => {
   if (userStore.user?.id) {
     router.push(`/user/${userStore.user.id}?edit=true`)
   }
+}
+
+const openMessageCenter = () => {
+  window.open('/message', '_blank')
 }
 
 // 处理签到

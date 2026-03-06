@@ -19,7 +19,7 @@ import AdminPage from './views/AdminPage.vue'
 
 import CreatePostPage from './views/CreatePostPage.vue'
 import UserDetailPage from './views/UserDetailPage.vue'
-import ChatPage from './views/ChatPage.vue'
+import MessageCenterPage from './views/MessageCenterPage.vue'
 import SeckillPage from './views/SeckillPage.vue'
 import ActivitiesPage from './views/ActivitiesPage.vue'
 import './style.css'
@@ -37,7 +37,7 @@ const routes = [
   { path: '/admin', component: AdminPage, meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/user/:id', component: UserDetailPage, meta: { requiresAuth: true } },
   { path: '/create-post', component: CreatePostPage, meta: { requiresAuth: true } },
-  { path: '/chat', component: ChatPage, meta: { requiresAuth: true } },
+  { path: '/message', component: MessageCenterPage, meta: { requiresAuth: true } },
   { path: '/activities', component: ActivitiesPage, meta: { requiresAuth: true } },
   { path: '/seckill/:id', component: SeckillPage, meta: { requiresAuth: true } },
 
