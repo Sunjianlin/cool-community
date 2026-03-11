@@ -28,8 +28,9 @@
               class="btn" 
               :class="topic.isFollowed ? 'btn-following' : 'btn-primary'"
               @click="toggleFollow"
+              :disabled="loadingFollow"
             >
-              {{ topic.isFollowed ? '已关注' : '关注话题' }}
+              {{ loadingFollow ? '处理中...' : (topic.isFollowed ? '已关注' : '关注话题') }}
             </button>
             <router-link to="/create-post" class="btn btn-outline">
               发帖
@@ -105,11 +106,13 @@ import { Loading } from '@element-plus/icons-vue'
 import topicApi from '../api/topicApi'
 import postApi from '../api/postApi'
 import { useUserStore } from '../store/user'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const userStore = useUserStore()
 
 const loading = ref(true)
+const loadingFollow = ref(false)
 const topic = ref(null)
 const posts = ref([])
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
@@ -195,21 +198,52 @@ const loadPosts = async () => {
 
 const toggleFollow = async () => {
   if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
     return
   }
   
-  try {
-    if (topic.value.isFollowed) {
-      await topicApi.unfollowTopic(topic.value.id)
-      topic.value.isFollowed = false
-      topic.value.followCount = Math.max(0, (topic.value.followCount || 1) - 1)
-    } else {
-      await topicApi.followTopic(topic.value.id)
-      topic.value.isFollowed = true
-      topic.value.followCount = (topic.value.followCount || 0) + 1
+  if (loadingFollow.value) return
+  
+  if (topic.value.isFollowed) {
+    ElMessageBox.confirm(
+      `确定要取消关注「${topic.value.name}」吗？`,
+      '取消关注',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(async () => {
+      loadingFollow.value = true
+      try {
+        const response = await topicApi.unfollowTopic(topic.value.id)
+        if (response.code === 200) {
+          topic.value.isFollowed = false
+          topic.value.followCount = response.data
+          ElMessage.success('已取消关注')
+        }
+      } catch (error) {
+        console.error('操作失败:', error)
+        ElMessage.error('操作失败')
+      } finally {
+        loadingFollow.value = false
+      }
+    }).catch(() => {})
+  } else {
+    loadingFollow.value = true
+    try {
+      const response = await topicApi.followTopic(topic.value.id)
+      if (response.code === 200) {
+        topic.value.isFollowed = true
+        topic.value.followCount = response.data
+        ElMessage.success('关注成功')
+      }
+    } catch (error) {
+      console.error('操作失败:', error)
+      ElMessage.error('操作失败')
+    } finally {
+      loadingFollow.value = false
     }
-  } catch (error) {
-    console.error('关注操作失败:', error)
   }
 }
 
@@ -357,6 +391,11 @@ watch(() => route.params.id, () => {
 .btn-outline:hover {
   border-color: #3498db;
   color: #3498db;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .posts-section {

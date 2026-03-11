@@ -93,7 +93,7 @@
                   <div class="notification-header">
                     <span class="notification-title">
                       <strong>{{ item.commenterName }}</strong> 
-                      <span v-if="item.type === 'comment_reply'">回复了你在</span>
+                      <span v-if="item.type === 'COMMENT_REPLY'">回复了你在</span>
                       <span v-else>评论了你的帖子</span>
                       <span class="post-link">《{{ item.postTitle }}》</span>
                     </span>
@@ -128,7 +128,9 @@
                 <div class="notification-content">
                   <div class="notification-header">
                     <span class="notification-title">
-                      <strong>{{ item.likerName }}</strong> 赞了你的帖子
+                      <strong>{{ item.likerName }}</strong> 
+                      <span v-if="item.type === 'COMMENT_LIKE'">赞了你的评论</span>
+                      <span v-else>赞了你的帖子</span>
                       <span class="post-link">《{{ item.postTitle }}》</span>
                     </span>
                     <span class="notification-time">{{ formatDateTime(item.createTime) }}</span>
@@ -190,13 +192,13 @@
                    :class="{ unread: item.isRead === 0 }"
                    @click="handleSystemClick(item)">
                 <div class="system-icon">
-                  <span v-if="item.type === 1">📢</span>
-                  <span v-else-if="item.type === 2">🎉</span>
+                  <span v-if="item.type === 'ANNOUNCEMENT'">📢</span>
+                  <span v-else-if="item.type === 'PROMOTION'">🎉</span>
                   <span v-else>ℹ️</span>
                 </div>
                 <div class="notification-content">
                   <div class="notification-header">
-                    <span class="notification-title"><strong>{{ item.title }}</strong></span>
+                    <span class="notification-title"><strong>{{ getSystemTitle(item) }}</strong></span>
                     <span class="notification-time">{{ formatDateTime(item.createTime) }}</span>
                   </div>
                   <p class="notification-text">{{ item.content }}</p>
@@ -419,10 +421,16 @@ const loadSystemNotifications = async () => {
   }
 }
 
+const getSystemTitle = (item) => {
+  if (item.type === 'ANNOUNCEMENT') return '系统公告'
+  if (item.type === 'PROMOTION') return '活动通知'
+  return '系统通知'
+}
+
 const handleCommentClick = async (item) => {
   if (item.isRead === 0) {
     try {
-      if (item.type === 'comment_reply') {
+      if (item.type === 'COMMENT_REPLY') {
         await messageCenterApi.markCommentReplyAsRead(item.id)
       } else {
         await messageCenterApi.markPostCommentAsRead(item.id)

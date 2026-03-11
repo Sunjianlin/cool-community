@@ -1,5 +1,6 @@
 package com.cool.server.controller.client;
 
+import com.cool.pojo.Result;
 import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.vo.PageVO;
 import com.cool.server.annotation.RequireLogin;
@@ -23,43 +24,49 @@ public class FollowController {
     @Operation(summary = "关注用户", description = "关注指定用户", security = @SecurityRequirement(name = "Bearer"))
     @RequireLogin
     @PostMapping("/user/{id}")
-    public void followUser(@Parameter(description = "用户ID") @PathVariable Long id) {
+    public Result followUser(@Parameter(description = "用户ID") @PathVariable Long id) {
         followService.follow(id, FollowService.TYPE_USER);
+        return Result.success("关注成功");
     }
     
     @Operation(summary = "取消关注用户", description = "取消关注指定用户", security = @SecurityRequirement(name = "Bearer"))
     @RequireLogin
     @DeleteMapping("/user/{id}")
-    public void unfollowUser(@Parameter(description = "用户ID") @PathVariable Long id) {
+    public Result unfollowUser(@Parameter(description = "用户ID") @PathVariable Long id) {
         followService.unfollow(id, FollowService.TYPE_USER);
+        return Result.success("已取消关注");
     }
     
     @Operation(summary = "关注话题", description = "关注指定话题", security = @SecurityRequirement(name = "Bearer"))
     @RequireLogin
     @PostMapping("/topic/{id}")
-    public void followTopic(@Parameter(description = "话题ID") @PathVariable Long id) {
+    public Result followTopic(@Parameter(description = "话题ID") @PathVariable Long id) {
         followService.follow(id, FollowService.TYPE_TOPIC);
+        return Result.success("关注成功");
     }
     
     @Operation(summary = "取消关注话题", description = "取消关注指定话题", security = @SecurityRequirement(name = "Bearer"))
     @RequireLogin
     @DeleteMapping("/topic/{id}")
-    public void unfollowTopic(@Parameter(description = "话题ID") @PathVariable Long id) {
+    public Result unfollowTopic(@Parameter(description = "话题ID") @PathVariable Long id) {
         followService.unfollow(id, FollowService.TYPE_TOPIC);
+        return Result.success("已取消关注");
     }
     
     @Operation(summary = "关注产品", description = "关注指定产品", security = @SecurityRequirement(name = "Bearer"))
     @RequireLogin
     @PostMapping("/product/{id}")
-    public void followProduct(@Parameter(description = "产品ID") @PathVariable Long id) {
+    public Result followProduct(@Parameter(description = "产品ID") @PathVariable Long id) {
         followService.follow(id, FollowService.TYPE_PRODUCT);
+        return Result.success("关注成功");
     }
     
     @Operation(summary = "取消关注产品", description = "取消关注指定产品", security = @SecurityRequirement(name = "Bearer"))
     @RequireLogin
     @DeleteMapping("/product/{id}")
-    public void unfollowProduct(@Parameter(description = "产品ID") @PathVariable Long id) {
+    public Result unfollowProduct(@Parameter(description = "产品ID") @PathVariable Long id) {
         followService.unfollow(id, FollowService.TYPE_PRODUCT);
+        return Result.success("已取消关注");
     }
     
     @Operation(summary = "检查是否关注", description = "检查当前用户是否关注了指定对象")

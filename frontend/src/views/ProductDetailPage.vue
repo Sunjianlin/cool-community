@@ -60,6 +60,7 @@ import { useUserStore } from '../store/user'
 import productApi from '../api/productApi'
 import postApi from '../api/postApi'
 import followApi from '../api/followApi'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const product = ref({})
@@ -103,7 +104,6 @@ const loadProduct = async () => {
     product.value = response.data || {}
     updatePageTitle()
     
-    // 检查关注状态
     if (userStore.isLoggedIn) {
       await checkFollowStatus()
     }
@@ -114,7 +114,7 @@ const loadProduct = async () => {
 
 const checkFollowStatus = async () => {
   try {
-    const response = await followApi.checkFollow(route.params.id, 2) // 2 表示产品类型
+    const response = await followApi.checkFollow(route.params.id, 2)
     isFollowing.value = response.data || false
   } catch (error) {
     console.error('检查关注状态失败:', error)
@@ -125,22 +125,46 @@ const checkFollowStatus = async () => {
 const toggleFollow = async () => {
   if (loadingFollow.value) return
   
-  loadingFollow.value = true
-  try {
-    if (isFollowing.value) {
-      // 取消关注
-      await followApi.unfollowProduct(route.params.id)
-      product.value.followCount = Math.max(0, (product.value.followCount || 0) - 1)
-    } else {
-      // 关注
-      await followApi.followProduct(route.params.id)
-      product.value.followCount = (product.value.followCount || 0) + 1
+  if (isFollowing.value) {
+    ElMessageBox.confirm(
+      `确定要取消关注「${product.value.name}」吗？`,
+      '取消关注',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(async () => {
+      loadingFollow.value = true
+      try {
+        const response = await followApi.unfollowProduct(route.params.id)
+        if (response.code === 200) {
+          product.value.followCount = response.data
+          isFollowing.value = false
+          ElMessage.success('已取消关注')
+        }
+      } catch (error) {
+        console.error('操作失败:', error)
+        ElMessage.error('操作失败')
+      } finally {
+        loadingFollow.value = false
+      }
+    }).catch(() => {})
+  } else {
+    loadingFollow.value = true
+    try {
+      const response = await followApi.followProduct(route.params.id)
+      if (response.code === 200) {
+        product.value.followCount = response.data
+        isFollowing.value = true
+        ElMessage.success('关注成功')
+      }
+    } catch (error) {
+      console.error('操作失败:', error)
+      ElMessage.error('操作失败')
+    } finally {
+      loadingFollow.value = false
     }
-    isFollowing.value = !isFollowing.value
-  } catch (error) {
-    console.error('操作失败:', error)
-  } finally {
-    loadingFollow.value = false
   }
 }
 
@@ -306,7 +330,6 @@ onMounted(() => {
   color: white;
 }
 
-/* 相关帖子样式 */
 .related-posts-section h2 {
   font-size: 20px;
   font-weight: 600;
@@ -374,7 +397,6 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .product-header {
     flex-direction: column;

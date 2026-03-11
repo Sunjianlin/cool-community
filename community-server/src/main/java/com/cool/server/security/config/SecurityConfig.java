@@ -1,6 +1,5 @@
 package com.cool.server.security.config;
 
-import com.cool.common.constant.RoleConstant;
 import com.cool.server.security.filter.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,11 +34,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/user/login", "/user/register", "/user/refresh").permitAll()
                         .requestMatchers("/static/**", "/error", "/swagger-ui/**", "/swagger-ui.html",
-                                "/v3/api-docs/**", "/webjars/**").permitAll()
+                                "/v3/api-docs/**", "/webjars/**","/druid/**").permitAll()
                         .requestMatchers("/admin/**").hasAnyAuthority("ROLE_1","ROLE_2","ROLE_3")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+//                .csrf(csrf -> csrf
+//                        .ignoringRequestMatchers("/druid/**") // Druid 监控页面
+//                        .ignoringRequestMatchers("/user/login")
+//                        .ignoringRequestMatchers("/user/register")
+//                        .ignoringRequestMatchers("/user/refresh")
+//                        .ignoringRequestMatchers("/heartbeat")
+//                );
 
         return http.build();
     }

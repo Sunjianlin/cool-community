@@ -12,7 +12,7 @@ import com.cool.server.mapper.ProductMapper;
 import com.cool.server.mapper.TopicMapper;
 import com.cool.server.mapper.UserMapper;
 import com.cool.server.service.FollowService;
-import com.cool.server.service.NotificationService;
+import com.cool.server.service.producer.NotifyProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class FollowServiceImpl implements FollowService {
     private ProductMapper productMapper;
     
     @Autowired
-    private NotificationService notificationService;
+    private NotifyProducer notifyProducer;
     
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -68,7 +68,11 @@ public class FollowServiceImpl implements FollowService {
         
         // 发送关注通知（仅用户关注时）
         if (targetType == TYPE_USER) {
-            notificationService.createFollowNotification(userId, targetId);
+            com.cool.pojo.entity.User follower = userMapper.getById(userId);
+            com.cool.pojo.entity.User followed = userMapper.getById(targetId);
+            if (follower != null && followed != null) {
+                notifyProducer.sendFollowNotify(targetId, userId, follower.getNickname());
+            }
         }
         
         log.info("用户{}关注了{}:{} {}", userId, getTargetTypeName(targetType), targetType, targetId);

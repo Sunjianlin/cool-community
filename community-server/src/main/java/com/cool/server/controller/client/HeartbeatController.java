@@ -1,5 +1,6 @@
 package com.cool.server.controller.client;
 
+import com.cool.pojo.Result;
 import com.cool.server.context.BaseContext;
 import com.cool.server.service.OnlineStatusService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,9 +22,9 @@ public class HeartbeatController {
     
     @Operation(summary = "发送心跳", description = "发送用户心跳，保持在线状态")
     @PostMapping
-    public ResponseEntity<Void> sendHeartbeat() {
+    public Result sendHeartbeat() {
         Long userId = BaseContext.getCurrentId();
         onlineStatusService.handleHeartbeat(userId);
-        return ResponseEntity.ok().build();
+        return Result.success();
     }
 }

@@ -55,9 +55,7 @@
     </header>
     <main class="main">
       <router-view v-slot="{ Component }">
-        <keep-alive>
-          <component :is="Component" :key="$route.fullPath" />
-        </keep-alive>
+        <component :is="Component" :key="$route.fullPath + refreshKey" />
       </router-view>
     </main>
     <footer class="footer">
@@ -100,6 +98,7 @@ const userStore = useUserStore()
 const chatStore = useChatStore()
 const searchKeyword = ref('')
 let messageCheckInterval = null
+const refreshKey = ref(0)
 
 // 签到相关状态
 const hasCheckedInToday = ref(false)
@@ -109,9 +108,13 @@ const isAdmin = computed(() => {
   return userStore.isAdmin
 })
 
+const totalUnreadCount = computed(() => {
+  return chatStore.unreadCount || 0
+})
+
 const navigateTo = (path) => {
   if (route.path === path) {
-    window.location.reload()
+    refreshKey.value++
   } else {
     router.push(path)
   }
@@ -121,7 +124,7 @@ const handleSearch = () => {
   if (searchKeyword.value.trim()) {
     const url = `/search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`
     if (route.path === '/search' && route.query.keyword === searchKeyword.value.trim()) {
-      window.location.reload()
+      refreshKey.value++
     } else {
       router.push(url)
     }

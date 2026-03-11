@@ -4,12 +4,16 @@ import com.cool.common.constant.MessageConstant;
 import com.cool.pojo.dto.CommentCreateDTO;
 import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.entity.Comment;
+import com.cool.pojo.entity.Post;
+import com.cool.pojo.entity.User;
 import com.cool.pojo.vo.CommentVO;
 import com.cool.pojo.vo.PageVO;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.CommentMapper;
 import com.cool.server.mapper.PostMapper;
+import com.cool.server.mapper.UserMapper;
 import com.cool.server.service.CommentService;
+import com.cool.server.service.producer.NotifyProducer;
 import cn.hutool.core.bean.BeanUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -24,6 +28,12 @@ public class CommentServiceImpl implements CommentService {
 
     @Autowired
     private PostMapper postMapper;
+    
+    @Autowired
+    private UserMapper userMapper;
+    
+    @Autowired
+    private NotifyProducer notifyProducer;
 
     public CommentServiceImpl(CommentMapper commentMapper, StringRedisTemplate stringRedisTemplate) {
         this.commentMapper = commentMapper;
@@ -43,6 +53,36 @@ public class CommentServiceImpl implements CommentService {
         postMapper.addComment(dto.getPostId());
         
         commentMapper.insert(comment);
+        
+        Post post = postMapper.getById(dto.getPostId());
+        User commenter = userMapper.getById(userId);
+        
+        if (post != null && commenter != null) {
+            if (dto.getParentId() != null && dto.getParentId() > 0) {
+                Comment parentComment = commentMapper.getById(dto.getParentId());
+                if (parentComment != null && !parentComment.getUserId().equals(userId)) {
+                    notifyProducer.sendCommentReplyNotify(
+                            parentComment.getUserId(), 
+                            userId, 
+                            commenter.getNickname(), 
+                            dto.getPostId(), 
+                            post.getTitle(), 
+                            comment.getId()
+                    );
+                }
+            } else {
+                if (!post.getUserId().equals(userId)) {
+                    notifyProducer.sendPostCommentNotify(
+                            post.getUserId(), 
+                            userId, 
+                            commenter.getNickname(), 
+                            dto.getPostId(), 
+                            post.getTitle()
+                    );
+                }
+            }
+        }
+        
         return comment.getId();
     }
 

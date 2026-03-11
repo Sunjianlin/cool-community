@@ -65,8 +65,9 @@
             class="btn"
             :class="userInfo.isFollowing ? 'btn-following' : 'btn-primary'"
             @click="toggleFollow"
+            :disabled="loadingFollow"
           >
-            {{ userInfo.isFollowing ? '已关注' : '关注' }}
+            {{ loadingFollow ? '处理中...' : (userInfo.isFollowing ? '已关注' : '关注') }}
           </button>
           <button class="btn btn-outline" @click="startChat">
             私信
@@ -263,7 +264,7 @@ import userApi from '../api/userApi'
 import postApi from '../api/postApi'
 import checkinApi from '../api/checkinApi'
 import backgroundApi from '../api/backgroundApi'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { truncateWithStripHtml } from '../utils/textUtils'
 
 const route = useRoute()
@@ -334,6 +335,8 @@ const loadUserPosts = async () => {
   }
 }
 
+const loadingFollow = ref(false)
+
 const toggleFollow = async () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
@@ -341,21 +344,48 @@ const toggleFollow = async () => {
     return
   }
 
-  try {
-    if (userInfo.value.isFollowing) {
-      await userApi.unfollowUser(userInfo.value.id)
-      userInfo.value.isFollowing = false
-      userInfo.value.followerCount = Math.max(0, (userInfo.value.followerCount || 1) - 1)
-      ElMessage.success('已取消关注')
-    } else {
-      await userApi.followUser(userInfo.value.id)
-      userInfo.value.isFollowing = true
-      userInfo.value.followerCount = (userInfo.value.followerCount || 0) + 1
-      ElMessage.success('关注成功')
+  if (loadingFollow.value) return
+
+  if (userInfo.value.isFollowing) {
+    ElMessageBox.confirm(
+      `确定要取消关注「${userInfo.value.nickname || userInfo.value.username}」吗？`,
+      '取消关注',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(async () => {
+      loadingFollow.value = true
+      try {
+        const response = await userApi.unfollowUser(userInfo.value.id)
+        if (response.code === 200) {
+          userInfo.value.isFollowing = false
+          userInfo.value.followerCount = response.data
+          ElMessage.success('已取消关注')
+        }
+      } catch (error) {
+        console.error('操作失败:', error)
+        ElMessage.error(error.message || '操作失败')
+      } finally {
+        loadingFollow.value = false
+      }
+    }).catch(() => {})
+  } else {
+    loadingFollow.value = true
+    try {
+      const response = await userApi.followUser(userInfo.value.id)
+      if (response.code === 200) {
+        userInfo.value.isFollowing = true
+        userInfo.value.followerCount = response.data
+        ElMessage.success('关注成功')
+      }
+    } catch (error) {
+      console.error('操作失败:', error)
+      ElMessage.error(error.message || '操作失败')
+    } finally {
+      loadingFollow.value = false
     }
-  } catch (error) {
-    console.error('关注操作失败:', error)
-    ElMessage.error(error.message || '操作失败')
   }
 }
 

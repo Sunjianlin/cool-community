@@ -18,7 +18,7 @@ public class SeckillTask {
     @Autowired
     private SeckillService seckillService;
     
-    // 每1分钟检查并更新活动状态
+    // 每10秒检查并更新活动状态
     @Scheduled(cron = "0/10 * * * * *")
     public void updateActivityStatus() {
         try {

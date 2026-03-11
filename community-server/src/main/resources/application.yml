@@ -2,7 +2,6 @@ server:
   port: ${server.port}
   servlet:
     context-path: /api
-
 spring:
   application:
     name: cool-community
@@ -27,6 +26,16 @@ spring:
       test-on-return: false
       pool-prepared-statements: true
       max-pool-prepared-statement-per-connection-size: 20
+      stat-view-servlet:
+        enabled: ${druid.stat-view-servlet.enabled}
+        url-pattern: ${druid.stat-view-servlet.url-pattern}
+        login-username: ${druid.stat-view-servlet.login-username}
+        login-password: ${druid.stat-view-servlet.login-password}
+        allow: ${druid.stat-view-servlet.allow}
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
   data:
     redis:
       host: ${redis.host}
@@ -48,7 +57,7 @@ spring:
     virtual-host: ${rabbitmq.virtual-host}
     listener:
       simple:
-        acknowledge-mode: auto
+        acknowledge-mode: manual
         prefetch: 10
         retry:
           enabled: true

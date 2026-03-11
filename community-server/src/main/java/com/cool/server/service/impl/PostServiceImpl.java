@@ -6,12 +6,14 @@ import com.cool.common.constant.RedisConstant;
 import com.cool.pojo.dto.PageQueryDTO;
 import com.cool.pojo.dto.PostCreateDTO;
 import com.cool.pojo.entity.Post;
+import com.cool.pojo.entity.User;
 import com.cool.pojo.vo.PageVO;
 import com.cool.pojo.vo.PostVO;
 import com.cool.server.context.BaseContext;
 import com.cool.server.mapper.PostMapper;
 import com.cool.server.mapper.UserMapper;
 import com.cool.server.service.PostService;
+import com.cool.server.service.producer.NotifyProducer;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,9 @@ public class PostServiceImpl implements PostService {
 
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private NotifyProducer notifyProducer;
 
     public PostServiceImpl(PostMapper postMapper, StringRedisTemplate stringRedisTemplate) {
         this.postMapper = postMapper;
@@ -188,6 +193,14 @@ public class PostServiceImpl implements PostService {
         String key = RedisConstant.POST_LIKE_KEY + id + ":" + userId;
         stringRedisTemplate.opsForValue().set(key, "1");
         postMapper.incrementLikeCount(id);
+        
+        Post post = postMapper.getById(id);
+        if (post != null && !post.getUserId().equals(userId)) {
+            User liker = userMapper.getById(userId);
+            if (liker != null) {
+                notifyProducer.sendPostLikeNotify(post.getUserId(), userId, liker.getNickname(), id, post.getTitle());
+            }
+        }
     }
 
     @Override
