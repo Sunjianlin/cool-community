@@ -183,4 +183,35 @@ public class InnerMessageServiceImpl implements InnerMessageService {
         
         log.info("保存系统通知成功: receiverId={}", message.getReceiverId());
     }
+
+    @Override
+    @Transactional
+    public void saveFailedNotify(NotifyMessage message, String originalQueue) {
+        UserNotificationMain existing = userNotificationMainMapper.selectByMessageId(message.getMessageId());
+        if (existing != null) {
+            log.info("失败通知已存在，跳过: messageId={}", message.getMessageId());
+            return;
+        }
+
+        UserNotificationMain main = new UserNotificationMain();
+        main.setMessageId(message.getMessageId());
+        main.setReceiverId(message.getReceiverId());
+        main.setSenderId(message.getSenderId() != null ? message.getSenderId() : 0L);
+        main.setNotifyType("FAILED");
+        main.setContent(message.getContent());
+        main.setReadStatus(0);
+        
+        userNotificationMainMapper.insert(main);
+
+        UserNotificationSystem system = new UserNotificationSystem();
+        system.setNotificationId(main.getId());
+        system.setSystemMsgType("FAILED_NOTIFY");
+        system.setRelatedBusinessId(message.getBusinessId() != null ? message.getBusinessId() : 0L);
+        system.setJumpUrl("");
+        
+        userNotificationSystemMapper.insert(system);
+        
+        log.warn("保存失败通知到死信队列记录: messageId={}, receiverId={}, originalQueue={}", 
+                message.getMessageId(), message.getReceiverId(), originalQueue);
+    }
 }

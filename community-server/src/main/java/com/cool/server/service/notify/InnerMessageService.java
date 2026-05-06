@@ -13,4 +13,6 @@ public interface InnerMessageService {
     void savePrivateNotify(NotifyMessage message);
 
     void saveSystemNotify(NotifyMessage message);
+
+    void saveFailedNotify(NotifyMessage message, String originalQueue);
 }

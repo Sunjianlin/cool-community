@@ -2,6 +2,7 @@ package com.cool.server.service.producer;
 
 import com.cool.common.constant.RabbitMQNotifyConstants;
 import com.cool.pojo.entity.notify.NotifyMessage;
+import com.cool.server.utils.MessageTraceLogger;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,11 +24,7 @@ public class NotifyProducer {
                 .extra(postId.toString())
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.COMMENT_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.COMMENT_ROUTING_KEY, message);
     }
 
     public void sendPostCommentNotify(Long receiverId, Long senderId, String senderName, Long postId, String postTitle) {
@@ -41,11 +38,7 @@ public class NotifyProducer {
                 .businessType("POST_COMMENT")
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.COMMENT_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.COMMENT_ROUTING_KEY, message);
     }
 
     public void sendCommentReplyNotify(Long receiverId, Long senderId, String senderName, Long postId, String postTitle, Long commentId) {
@@ -60,11 +53,7 @@ public class NotifyProducer {
                 .extra(postId.toString())
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.COMMENT_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.COMMENT_ROUTING_KEY, message);
     }
 
     public void sendPostLikeNotify(Long receiverId, Long senderId, String senderName, Long postId, String postTitle) {
@@ -78,11 +67,7 @@ public class NotifyProducer {
                 .businessType("POST_LIKE")
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.LIKE_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.LIKE_ROUTING_KEY, message);
     }
 
     public void sendCommentLikeNotify(Long receiverId, Long senderId, String senderName, Long commentId, Long postId) {
@@ -97,11 +82,7 @@ public class NotifyProducer {
                 .extra(postId.toString())
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.LIKE_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.LIKE_ROUTING_KEY, message);
     }
 
     public void sendFollowNotify(Long receiverId, Long senderId, String senderName) {
@@ -115,11 +96,7 @@ public class NotifyProducer {
                 .businessType("USER_FOLLOW")
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.FOLLOW_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.FOLLOW_ROUTING_KEY, message);
     }
 
     public void sendPrivateNotify(Long receiverId, Long senderId, String senderName, String content, Long messageId) {
@@ -134,11 +111,7 @@ public class NotifyProducer {
                 .extra(content)
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.PRIVATE_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.PRIVATE_ROUTING_KEY, message);
     }
 
     public void sendSystemNotify(Long receiverId, String title, String content, String systemType, Long relatedBusinessId) {
@@ -151,11 +124,7 @@ public class NotifyProducer {
                 .businessType(systemType)
                 .build();
         
-        rabbitTemplate.convertAndSend(
-                RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.SYSTEM_ROUTING_KEY,
-                message
-        );
+        sendMessage(RabbitMQNotifyConstants.SYSTEM_ROUTING_KEY, message);
     }
 
     public void sendBroadcastNotify(String title, String content, String systemType) {
@@ -168,9 +137,15 @@ public class NotifyProducer {
                 .businessType(systemType)
                 .build();
         
+        sendMessage(RabbitMQNotifyConstants.SYSTEM_ROUTING_KEY, message);
+    }
+
+    private void sendMessage(String routingKey, NotifyMessage message) {
+        MessageTraceLogger.logProduced(RabbitMQNotifyConstants.NOTIFY_EXCHANGE, routingKey, message);
+        
         rabbitTemplate.convertAndSend(
                 RabbitMQNotifyConstants.NOTIFY_EXCHANGE,
-                RabbitMQNotifyConstants.SYSTEM_ROUTING_KEY,
+                routingKey,
                 message
         );
     }

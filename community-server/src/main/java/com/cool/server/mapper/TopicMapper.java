@@ -53,4 +53,7 @@ public interface TopicMapper {
 
     @Select("SELECT COUNT(*) FROM topic WHERE deleted = 0 AND id NOT IN (SELECT follow_id FROM follow WHERE user_id = #{userId} AND type = 1 AND deleted = 0)")
     Long countRecommendedTopics(@Param("userId") Long userId);
+
+    @Select("SELECT * FROM topic WHERE deleted = 0")
+    List<Topic> selectAll();
 }

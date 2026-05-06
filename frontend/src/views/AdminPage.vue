@@ -24,7 +24,7 @@
         <el-input 
           v-model="topicFilter.keyword" 
           placeholder="搜索话题名称" 
-          style="width: 200px; margin-right: 10px" 
+          class="filter-input"
           @keyup.enter="loadTopics"
         />
         <el-button type="primary" @click="loadTopics">搜索</el-button>
@@ -64,14 +64,14 @@
       </div>
       
       <div class="filter-section">
-        <el-select v-model="productFilter.categoryId" placeholder="选择分类" style="width: 150px; margin-right: 10px">
+        <el-select v-model="productFilter.categoryId" placeholder="选择分类" class="filter-select">
           <el-option label="全部分类" value="" />
           <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
         </el-select>
         <el-input 
           v-model="productFilter.keyword" 
           placeholder="搜索产品名称或品牌" 
-          style="width: 200px; margin-right: 10px" 
+          class="filter-input"
           @keyup.enter="loadProducts"
         />
         <el-button type="primary" @click="loadProducts">搜索</el-button>
@@ -169,12 +169,12 @@
       
       <!-- 用户筛选 -->
       <div class="filter-section">
-        <el-select v-model="userFilter.role" placeholder="选择角色" style="width: 120px; margin-right: 10px">
+        <el-select v-model="userFilter.role" placeholder="选择角色" class="filter-select-sm">
           <el-option label="全部角色" value="" />
           <el-option label="普通用户" value="0" />
           <el-option label="管理员" value="1" />
         </el-select>
-        <el-select v-model="userFilter.status" placeholder="选择状态" style="width: 120px; margin-right: 10px">
+        <el-select v-model="userFilter.status" placeholder="选择状态" class="filter-select-sm">
           <el-option label="全部状态" value="" />
           <el-option label="正常" value="1" />
           <el-option label="已禁用" value="0" />
@@ -182,7 +182,7 @@
         <el-input 
           v-model="userFilter.keyword" 
           placeholder="搜索用户名或昵称" 
-          style="width: 200px; margin-right: 10px" 
+          class="filter-input"
           @keyup.enter="loadUsers"
         />
         <el-button type="primary" @click="loadUsers">搜索</el-button>
@@ -1109,6 +1109,18 @@ onMounted(() => {
   gap: 10px;
 }
 
+.filter-input {
+  width: 280px;
+}
+
+.filter-select {
+  width: 180px;
+}
+
+.filter-select-sm {
+  width: 140px;
+}
+
 /* 分页区域 */
 .pagination-section {
   margin-top: 20px;
@@ -1254,14 +1266,15 @@ onMounted(() => {
     align-items: stretch;
   }
   
-  .filter-section .el-input {
+  .filter-section .el-input,
+  .filter-input {
     width: 100% !important;
-    margin-right: 0 !important;
   }
   
-  .filter-section .el-select {
+  .filter-section .el-select,
+  .filter-select,
+  .filter-select-sm {
     width: 100% !important;
-    margin-right: 0 !important;
   }
   
   .pagination-section {

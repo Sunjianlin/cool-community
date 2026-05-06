@@ -84,5 +84,7 @@ public interface UserMapper {
     @Update("UPDATE user SET post_count=post_count+1 where id=#{userId}")
     void addPostCount(Long userId);
 
+    @Select("SELECT * FROM user WHERE deleted = 0")
+    List<User> selectAll();
 
 }

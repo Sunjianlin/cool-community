@@ -24,11 +24,35 @@
           </button>
           <router-link v-else to="/login" class="login-button">登录后关注</router-link>
         </div>
-        <div v-if="product.specs" class="specs">
-          <h3>规格配置</h3>
-          <p>{{ product.specs }}</p>
-        </div>
-        <p v-if="product.description" class="description">{{ product.description }}</p>
+        <div v-if="product.description" class="description">{{ product.description }}</div>
+      </div>
+    </div>
+    
+    <div v-if="product.specs" class="specs-section card">
+      <h2>规格配置</h2>
+      <div v-if="parsedSpecs" class="specs-table-wrapper">
+        <table class="specs-table">
+          <tbody>
+            <template v-for="(value, key) in parsedSpecs" :key="key">
+              <tr v-if="typeof value !== 'object'">
+                <td class="spec-label">{{ formatSpecKey(key) }}</td>
+                <td class="spec-value">{{ value }}</td>
+              </tr>
+              <template v-else>
+                <tr class="spec-group-header">
+                  <td colspan="2">{{ formatSpecKey(key) }}</td>
+                </tr>
+                <tr v-for="(subValue, subKey) in value" :key="subKey">
+                  <td class="spec-label sub-label">{{ formatSpecKey(subKey) }}</td>
+                  <td class="spec-value">{{ subValue }}</td>
+                </tr>
+              </template>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div v-else class="specs-text">
+        <p>{{ product.specs }}</p>
       </div>
     </div>
     
@@ -71,6 +95,85 @@ const defaultImage = 'https://cube.elemecdn.com/e/fd/0/yz33e8pE6VUm0fHQyUb7Z5Th4
 const userStore = useUserStore()
 const isFollowing = ref(false)
 const loadingFollow = ref(false)
+
+const parsedSpecs = computed(() => {
+  if (!product.value.specs) return null
+  try {
+    const parsed = JSON.parse(product.value.specs)
+    if (typeof parsed === 'object' && parsed !== null) {
+      return parsed
+    }
+    return null
+  } catch (e) {
+    return null
+  }
+})
+
+const formatSpecKey = (key) => {
+  if (!key) return ''
+  const keyMap = {
+    'cpu': 'CPU',
+    'gpu': 'GPU',
+    'ram': '内存',
+    'storage': '存储',
+    'screen': '屏幕',
+    'battery': '电池',
+    'camera': '摄像头',
+    'os': '操作系统',
+    'weight': '重量',
+    'size': '尺寸',
+    'resolution': '分辨率',
+    'refreshRate': '刷新率',
+    'processor': '处理器',
+    'memory': '内存',
+    'disk': '硬盘',
+    'display': '显示器',
+    'graphics': '显卡',
+    'motherboard': '主板',
+    'power': '电源',
+    'cooling': '散热',
+    'network': '网络',
+    'interface': '接口',
+    'audio': '音频',
+    'sensor': '传感器',
+    'material': '材质',
+    'color': '颜色',
+    'warranty': '保修',
+    'price': '价格',
+    'releaseDate': '发布日期',
+    'model': '型号',
+    'brand': '品牌',
+    'type': '类型',
+    'capacity': '容量',
+    'speed': '速度',
+    'powerConsumption': '功耗',
+    'noise': '噪音',
+    'brightness': '亮度',
+    'contrast': '对比度',
+    'viewAngle': '可视角度',
+    'responseTime': '响应时间',
+    'charging': '充电',
+    'wireless': '无线',
+    'bluetooth': '蓝牙',
+    'wifi': 'WiFi',
+    'nfc': 'NFC',
+    'gps': 'GPS',
+    'fingerprint': '指纹识别',
+    'faceId': '面部识别',
+    'waterResist': '防水等级',
+    'dustResist': '防尘等级'
+  }
+  
+  if (keyMap[key.toLowerCase()]) {
+    return keyMap[key.toLowerCase()]
+  }
+  
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^\w/, c => c.toUpperCase())
+    .trim()
+}
 
 const updatePageTitle = () => {
   document.title = product.value.name ? `${product.value.name} - 酷安社区` : '产品详情 - 酷安社区'
@@ -252,20 +355,89 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.specs {
-  margin-bottom: 20px;
+.specs-section {
+  margin-bottom: 25px;
 }
 
-.specs h3 {
-  font-size: 16px;
-  margin-bottom: 10px;
+.specs-section h2 {
+  font-size: 20px;
   font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #f0f0f0;
 }
 
-.specs p {
+.specs-table-wrapper {
+  overflow-x: auto;
+}
+
+.specs-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.specs-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.specs-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.specs-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+.spec-group-header {
+  background-color: #f5f7fa;
+}
+
+.spec-group-header td {
+  font-weight: 600;
+  color: #333;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.spec-label {
+  width: 180px;
+  min-width: 120px;
+  padding: 14px 16px;
+  background-color: #fafafa;
+  color: #666;
+  font-weight: 500;
+  font-size: 14px;
+  vertical-align: top;
+  border-right: 1px solid #f0f0f0;
+}
+
+.spec-label.sub-label {
+  padding-left: 32px;
+  background-color: #fff;
+}
+
+.spec-value {
+  padding: 14px 16px;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.specs-text {
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.specs-text p {
+  margin: 0;
   color: #666;
   white-space: pre-wrap;
-  line-height: 1.5;
+  line-height: 1.8;
 }
 
 .description {
@@ -412,6 +584,51 @@ onMounted(() => {
   
   .card {
     padding: 20px;
+  }
+  
+  .specs-table {
+    display: block;
+  }
+  
+  .specs-table tbody {
+    display: block;
+  }
+  
+  .specs-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .specs-table tbody tr:last-child {
+    border-bottom: none;
+  }
+  
+  .spec-group-header {
+    background-color: #f5f7fa;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+  
+  .spec-label {
+    width: 100%;
+    min-width: auto;
+    padding: 4px 12px;
+    background-color: transparent;
+    border-right: none;
+    font-size: 13px;
+    color: #999;
+  }
+  
+  .spec-label.sub-label {
+    padding-left: 12px;
+  }
+  
+  .spec-value {
+    padding: 4px 12px;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 </style>

@@ -22,6 +22,7 @@ import UserDetailPage from './views/UserDetailPage.vue'
 import MessageCenterPage from './views/MessageCenterPage.vue'
 import SeckillPage from './views/SeckillPage.vue'
 import ActivitiesPage from './views/ActivitiesPage.vue'
+import SearchPage from './views/SearchPage.vue'
 import './style.css'
 
 const routes = [
@@ -40,6 +41,7 @@ const routes = [
   { path: '/message', component: MessageCenterPage, meta: { requiresAuth: true } },
   { path: '/activities', component: ActivitiesPage, meta: { requiresAuth: true } },
   { path: '/seckill/:id', component: SeckillPage, meta: { requiresAuth: true } },
+  { path: '/search', component: SearchPage, meta: { requiresAuth: true } },
 
 ]
 

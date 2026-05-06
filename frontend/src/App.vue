@@ -133,7 +133,7 @@ const handleSearch = () => {
 
 const handleLogout = async () => {
   await userStore.logout()
-  router.push('/')
+  window.location.href = '/login'
 }
 
 const editProfile = () => {
@@ -451,7 +451,7 @@ body {
 /* 搜索框设计 */
 .top-nav-center {
   flex: 1;
-  max-width: 450px;
+  max-width: 600px;
   margin: 0 32px;
 }
 
@@ -467,18 +467,19 @@ body {
 
 .search-icon {
   position: absolute;
-  left: 20px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   font-size: 16px;
   color: var(--text-light);
   transition: var(--transition);
   z-index: 1;
+  pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 20px 12px 48px;
+  padding: 12px 20px 12px 44px;
   border: 1px solid var(--border-color);
   border-radius: 30px;
   font-size: 14px;
@@ -785,7 +786,7 @@ body {
   
   .top-nav-center {
     margin: 0 24px;
-    max-width: 300px;
+    max-width: 400px;
   }
   
   .main {
@@ -816,12 +817,18 @@ body {
   }
   
   .top-nav-center {
-    margin: 0 16px;
-    max-width: 200px;
+    margin: 0 12px;
+    max-width: none;
+    flex: 1;
+  }
+  
+  .search-icon {
+    left: 12px;
+    font-size: 14px;
   }
   
   .search-input {
-    padding: 8px 12px 8px 36px;
+    padding: 10px 16px 10px 38px;
     font-size: 13px;
   }
   

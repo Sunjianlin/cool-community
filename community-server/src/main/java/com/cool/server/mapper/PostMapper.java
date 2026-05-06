@@ -58,4 +58,7 @@ public interface PostMapper {
 
     @Update("update post SET comment_count=comment_count+1 where id=#{postId}")
     void addComment(@NotNull(message = "帖子ID不能为空") Long postId);
+
+    @Select("SELECT * FROM post WHERE deleted = 0")
+    List<Post> selectAll();
 }

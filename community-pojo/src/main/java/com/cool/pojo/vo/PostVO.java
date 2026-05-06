@@ -31,6 +31,9 @@ public class PostVO {
     private Boolean isLiked;
     private Boolean isCollected;
     
+    private String highlightTitle;
+    private String highlightContent;
+    
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
     
